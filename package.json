@@ -1,0 +1,19 @@
+{
+  "name": "tcc",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "tsc --project tsconfig.node.json && node dist/test_main.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "@types/estree": "^1.0.8", 
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7"
+  }
+}

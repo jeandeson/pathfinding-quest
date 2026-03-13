@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Jogo 2D TypeScript + Canvas</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      max-width: 96%;
+      max-height: 80vh;
+      box-shadow: 0 0 30px rgba(255,255,255,0.1);
+    }
+    #hud {
+      margin-top: 10px;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <!-- HUD fixo no HTML -->
+  <div id="hud">
+    <!-- conteúdo inicial opcional, será sobrescrito -->
+  </div>
+
+  <script type="module" src="/main.ts"></script>
+</body>
+</html>
