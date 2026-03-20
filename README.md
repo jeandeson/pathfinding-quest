@@ -188,4 +188,5 @@ src/
 
 - **Assets visuais e sonoros**: [Kenney.nl](https://kenney.nl) — licença Creative Commons Zero (CC0)
 - **Desenvolvimento**: Jeandeson Nascimento
-- **Orientação**: TCC — Curso de [seu curso], [sua instituição]
+- **Orientação**: TCC — Curso de Ciência da Computação, Unijorge
+
