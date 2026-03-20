@@ -14,6 +14,7 @@ import type { Cell }             from '../world/Cell';                   // ← 
 import { PathfindingSystem,
          PathfindingAlgorithm }  from '../pathfinding/PathfindingSystem'; // ← fonte única do enum
 import { GameConfig }            from '../config/GameConfig';
+import { SoundManager }          from '../core/SoundManager';
 
 interface Particle { x: number; y: number; alpha: number; text: string }
 
@@ -40,6 +41,8 @@ export class GameScene implements IScene {
   private playerAlg                 = PathfindingAlgorithm.AStar;
   private enemyAlg:   PathfindingAlgorithm;
   private debugMode                 = false;
+  private allItemsCollected         = false;
+  private lastPlayerCell:   Cell | null = null;
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   private hud!: HUD;
@@ -63,6 +66,7 @@ export class GameScene implements IScene {
     this.hud        = new HUD();
     this.reset();
     this.unsubClick = this.input.onClick(pos => this.handleClick(pos));
+    SoundManager.playMusic('bg-song');
   }
 
   onExit(): void {
@@ -78,6 +82,12 @@ export class GameScene implements IScene {
 
     this.player.update(dt);
     for (const e of this.enemies) e.update(dt);
+
+    // Som de passo ao chegar numa nova célula
+    const pc = this.player.getCurrentCell();
+    if (this.lastPlayerCell && pc !== this.lastPlayerCell)
+      SoundManager.play('move', 0.4);
+    this.lastPlayerCell = pc;
 
     this.checkItemPickup();
     this.checkWinLose();
@@ -106,13 +116,14 @@ export class GameScene implements IScene {
     ctx.fillStyle = '#222';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    this.renderer.render(ctx, this.grid);
+    this.renderer.render(ctx, this.grid, this.debugMode);
     this.renderPath(ctx);
 
     for (const e of this.enemies) e.render(ctx, CELL_SIZE);
     this.player.render(ctx, CELL_SIZE);
 
-    drawCellX(ctx, this.goalCell.worldX, this.goalCell.worldY, CELL_SIZE, '#fff');
+    this.renderer.renderExit(ctx, this.goalCell.worldX, this.goalCell.worldY, CELL_SIZE, this.allItemsCollected);
+
     if (this.playerGoal && this.playerGoal !== this.goalCell)
       drawCellX(ctx, this.playerGoal.worldX, this.playerGoal.worldY, CELL_SIZE, '#ff0');
 
@@ -131,10 +142,12 @@ export class GameScene implements IScene {
     this.renderer   = new GridRenderer();
     this.pathfinder = new PathfindingSystem(this.grid);  // ← criado com a grid
 
-    this.score      = 0;
-    this.particles  = [];
-    this.enemyTimer = 0;
-    this.playerGoal = null;
+    this.score             = 0;
+    this.particles         = [];
+    this.enemyTimer        = 0;
+    this.playerGoal        = null;
+    this.allItemsCollected = false;
+    this.lastPlayerCell   = null;
 
     // Jogador
     const pCell     = this.grid.cells[0][0];
@@ -149,6 +162,7 @@ export class GameScene implements IScene {
       label:     'P',
       speed:     GameConfig.PLAYER.SPEED,
       spriteUrl: playerSrc,
+      spriteRow: 0,   // row 0 = personagem do jogador
     });
 
     // Inimigos
@@ -165,6 +179,7 @@ export class GameScene implements IScene {
         label:     `E${i + 1}`,
         speed:     GameConfig.ENEMY.SPEED,
         spriteUrl: enemySrc,
+        spriteRow: i % 4,   // cada inimigo usa um personagem diferente (rows 0-3)
       });
     });
 
@@ -187,7 +202,8 @@ export class GameScene implements IScene {
 
   private handleInput(): void {
     if (this.input.wasJustPressed('Shift')) this.player.activateDash();
-    if (this.input.wasJustPressed(' '))     this.player.tryJump(this.grid);
+    if (this.input.wasJustPressed(' ') && this.player.tryJump(this.grid))
+      SoundManager.play('jump', 0.6);
     if (this.input.wasJustPressed('d') || this.input.wasJustPressed('D'))
       this.debugMode = !this.debugMode;
 
@@ -255,21 +271,30 @@ export class GameScene implements IScene {
     const cell = this.player.getCurrentCell();
     if (this.grid.collectItem(cell)) {
       this.score += GameConfig.SCORE.ITEM_VALUE;
+      SoundManager.play('coin', 0.7);
       this.particles.push({
         x: cell.worldX + CELL_SIZE / 2, y: cell.worldY,
         alpha: 1, text: `+${GameConfig.SCORE.ITEM_VALUE}`,
       });
+      if (this.grid.getRemainingItems() === 0) {
+        this.allItemsCollected = true;
+        this.particles.push({
+          x: this.goalCell.worldX + CELL_SIZE / 2, y: this.goalCell.worldY,
+          alpha: 1, text: '★ SAÍDA ABERTA!',
+        });
+      }
     }
   }
 
   private checkWinLose(): void {
-    if (this.player.getCurrentCell() === this.goalCell) {
+    if (this.allItemsCollected && this.player.getCurrentCell() === this.goalCell) {
       this.bus.emit('scene:success', { score: this.score });
       return;
     }
     const pc = this.player.getCurrentCell();
     for (const e of this.enemies) {
       if (e.getCurrentCell() === pc) {
+        SoundManager.play('lose');
         this.bus.emit('scene:gameover', { score: this.score });
         return;
       }

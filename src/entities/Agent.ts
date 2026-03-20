@@ -17,6 +17,7 @@ export interface AgentOptions {
   label:      string;
   speed:      number;
   spriteUrl?: string;
+  spriteRow?: number;   // qual row do spritesheet (personagem), default 0
 }
 
 export abstract class Agent {
@@ -31,10 +32,11 @@ export abstract class Agent {
   protected isMoving:    boolean     = false;
 
   // Animação
-  private sprite:    HTMLImageElement | null = null;
-  private frameX     = 0;
-  private frameY     = 0;  // linha da spritesheet (direção)
-  private animTimer  = 0;
+  protected sprite:    HTMLImageElement | null = null;
+  protected frameX     = 0;
+  protected frameRow   = 0;   // row fixo do personagem no spritesheet
+  private   animTimer  = 0;
+  protected flipX      = false;  // espelha horizontalmente (movimento à esquerda)
 
   // Juice
   protected scaleX = 1;
@@ -51,6 +53,8 @@ export abstract class Agent {
     this.color       = opts.color;
     this.label       = opts.label;
     this.speed       = opts.speed;
+
+    this.frameRow = opts.spriteRow ?? 0;
 
     if (opts.spriteUrl) {
       this.sprite     = new Image();
@@ -101,9 +105,8 @@ export abstract class Agent {
     const dy = ty - this.worldY;
     const dist = Math.hypot(dx, dy);
 
-    // Define linha de animação pela direção de movimento
-    if (Math.abs(dx) > Math.abs(dy)) this.frameY = dx > 0 ? 3 : 2;
-    else                              this.frameY = dy > 0 ? 0 : 1;
+    // Flip horizontal quando vai para a esquerda; mantém flip ao mover vertical
+    if (Math.abs(dx) > Math.abs(dy)) this.flipX = dx < 0;
 
     if (dist < 2) {
       this.worldX      = tx;
@@ -125,18 +128,13 @@ export abstract class Agent {
     return this.speed;
   }
 
-  protected updateJuice(dt: number): void {
-    if (this.isMoving) {
-      const wobble  = Math.sin(this.animTimer * 25) * 0.06;
-      this.scaleX   = 1.0 + wobble;
-      this.scaleY   = 1.0 - wobble;
-    } else {
-      this.scaleX += (1 - this.scaleX) * 0.2;
-      this.scaleY += (1 - this.scaleY) * 0.2;
-    }
+  protected updateJuice(_dt: number): void {
+    // Retorno suave para escala neutra; squash/stretch pontual é feito por subclasses
+    this.scaleX += (1 - this.scaleX) * 0.2;
+    this.scaleY += (1 - this.scaleY) * 0.2;
   }
 
-  private updateAnimation(dt: number): void {
+  protected updateAnimation(dt: number): void {
     if (!this.isMoving) return;
     this.animTimer += dt;
     if (this.animTimer > CFG_ANIM.FRAME_INTERVAL) {
@@ -152,10 +150,11 @@ export abstract class Agent {
 
     if (this.sprite?.complete) {
       this.applyGlow(ctx);
+      const step = CFG_ANIM.SPRITE_WIDTH + CFG_ANIM.SPRITE_SPACING;
       ctx.drawImage(
         this.sprite,
-        this.frameX * CFG_ANIM.SPRITE_WIDTH,
-        this.frameY * CFG_ANIM.SPRITE_HEIGHT,
+        this.frameX   * step,
+        this.frameRow * step,
         CFG_ANIM.SPRITE_WIDTH,
         CFG_ANIM.SPRITE_HEIGHT,
         this.worldX, this.worldY, cellSize, cellSize
@@ -179,7 +178,7 @@ export abstract class Agent {
     const cx = drawX + size / 2;
     const cy = drawY + size / 2;
     ctx.translate(cx, cy);
-    ctx.scale(this.scaleX, this.scaleY);
+    ctx.scale(this.flipX ? -this.scaleX : this.scaleX, this.scaleY);
     ctx.translate(-cx, -cy);
   }
 

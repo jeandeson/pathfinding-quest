@@ -2,6 +2,7 @@
 import { EventBus }        from './core/EventBus';
 import { InputManager }    from './core/InputManager';
 import { AssetManager }    from './core/AssetManager';
+import { SoundManager }    from './core/SoundManager';
 import type { IScene }     from './scenes/Scene';
 import { MenuScene }       from './scenes/MenuScene';
 import { GameScene }       from './scenes/GameScene';
@@ -22,10 +23,9 @@ export type GameEvents = {
 // ── Asset manifest ───────────────────────────────────────────────────────────
 
 const ASSET_MANIFEST: Record<string, string> = {
-  tileset:  'src/assets/Tilesets/Grass.png',
-  obstacle: 'src/assets/Objects/Egg_item.png',
-  player:   'src/assets/Characters/sheep.png',
-  enemy:    'src/assets/Characters/cow.png',
+  tileset: 'src/assets/PNG/Tiles/Tilemap/tilemap_packed.png',
+  player:  'src/assets/PNG/Players/Tilemap/tilemap_packed.png',
+  enemy:   'src/assets/PNG/Enemies/Tilemap/tilemap_packed.png',
 };
 
 // ── Game ─────────────────────────────────────────────────────────────────────
@@ -64,8 +64,17 @@ export class Game {
   // ── Boot ────────────────────────────────────────────────────────────────────
 
   async start(): Promise<void> {
-    // Load all assets once before first frame
     await AssetManager.preload(ASSET_MANIFEST);
+    SoundManager.preload({
+      coin: 'src/assets/Sounds/coin-a.ogg',
+      jump: 'src/assets/Sounds/jump-a.ogg',
+      move: 'src/assets/Sounds/move-c.ogg',
+      lose: 'src/assets/Sounds/lose-a.ogg',
+    });
+    SoundManager.preloadMusic({
+      'menu-song': 'src/assets/Sounds/menu-song.mp3',
+      'bg-song':   'src/assets/Sounds/bg-song.mp3',
+    });
     this.switchScene(new MenuScene(this.canvas, this.bus, this.input));
     requestAnimationFrame(this.loop);
   }

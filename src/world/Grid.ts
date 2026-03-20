@@ -190,6 +190,15 @@ export class Grid {
     return true;
   }
 
+  /** Conta quantas maçãs ainda restam no mapa. */
+  public getRemainingItems(): number {
+    let n = 0;
+    for (const row of this.cells)
+      for (const c of row)
+        if (c.hasItem) n++;
+    return n;
+  }
+
   // ── Topologia ──────────────────────────────────────────────────────────────
 
   public isValid(x: number, y: number): boolean {

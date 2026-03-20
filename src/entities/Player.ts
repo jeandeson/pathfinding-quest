@@ -118,8 +118,7 @@ export class Player extends Agent {
   }
 
   private tickAnimation(dt: number): void {
-    // chamado para manter o timer funcionando durante salto
-    void dt;
+    this.updateAnimation(dt);
   }
 
   // ── Speed com dash ────────────────────────────────────────────────────────
@@ -174,14 +173,16 @@ export class Player extends Agent {
     // Re-usa o render da base mas com Y ajustado pelo salto
     this.applyTransform(ctx, this.worldX, drawY, cellSize);
 
-    if ((this as any).sprite?.complete) {
+    if (this.sprite?.complete) {
       this.applyGlow(ctx);
+      const anim = GameConfig.ANIMATION;
+      const step = anim.SPRITE_WIDTH + anim.SPRITE_SPACING;
       ctx.drawImage(
-        (this as any).sprite,
-        (this as any).frameX * GameConfig.ANIMATION.SPRITE_WIDTH,
-        (this as any).frameY * GameConfig.ANIMATION.SPRITE_HEIGHT,
-        GameConfig.ANIMATION.SPRITE_WIDTH,
-        GameConfig.ANIMATION.SPRITE_HEIGHT,
+        this.sprite,
+        this.frameX   * step,
+        this.frameRow * step,
+        anim.SPRITE_WIDTH,
+        anim.SPRITE_HEIGHT,
         this.worldX, drawY, cellSize, cellSize
       );
       ctx.shadowBlur = 0;

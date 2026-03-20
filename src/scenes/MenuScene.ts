@@ -6,6 +6,7 @@ import type { InputManager } from '../core/InputManager';
 import { Button }          from '../ui/Button';
 import { roundedRect }     from '../rendering/drawUtils';
 import { PathfindingAlgorithm, ALL_ALGORITHMS } from '../pathfinding/types';
+import { SoundManager }    from '../core/SoundManager';
 
 interface Star { x: number; y: number; r: number; speed: number }
 
@@ -31,6 +32,7 @@ export class MenuScene implements IScene {
     this.time  = 0;
     this.stars = this.buildStars();
     this.buildButtons();
+    SoundManager.playMusic('menu-song');
 
     this.unsubMove  = this.input.onMove(pos => {
       this.buttons.forEach(b => { b.hovered = b.contains(pos.x, pos.y); });
@@ -84,7 +86,7 @@ export class MenuScene implements IScene {
     }
 
     // Panel
-    const pw = 520, ph = 570, px = W / 2 - pw / 2, py = 50;
+    const pw = 520, ph = 580, px = W / 2 - pw / 2, py = 30;
     ctx.save();
     ctx.globalAlpha = 0.9;
     ctx.fillStyle   = '#0d0d22';
@@ -114,13 +116,16 @@ export class MenuScene implements IScene {
     ctx.fillText('MAZE RUN', 0, 0);
     ctx.restore();
 
-    // Divider
+    // Divider (after title)
     ctx.strokeStyle = '#331166'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(px + 40, py + 148); ctx.lineTo(px + pw - 40, py + 148); ctx.stroke();
 
+    // Divider (before algo selection)
+    ctx.beginPath(); ctx.moveTo(px + 40, py + 330); ctx.lineTo(px + pw - 40, py + 330); ctx.stroke();
+
     // Algorithm label
     ctx.font = 'bold 14px monospace'; ctx.fillStyle = 'rgba(200,185,255,0.95)';
-    ctx.fillText('— ALGORITMO DOS INIMIGOS —', W / 2, py + 180);
+    ctx.fillText('— ALGORITMO DOS INIMIGOS —', W / 2, py + 350);
     ctx.restore();
 
     // Buttons
@@ -150,15 +155,23 @@ export class MenuScene implements IScene {
 
   private buildButtons(): void {
     const cx = this.canvas.width / 2;
+    const algCols = [cx - 115, cx + 115];
+    const algRows = [420, 470];
+
     this.buttons = [
-      new Button({ label: '▶  INICIAR JOGO', cx, cy: 350, w: 290, h: 52, primary: true },
+      new Button({ label: '▶  INICIAR JOGO', cx, cy: 235, w: 290, h: 52, primary: true },
         () => this.bus.emit('scene:play', { enemyAlg: this.selectedAlg })),
 
-      new Button({ label: '📊  EXECUTAR BENCHMARK', cx, cy: 416, w: 290, h: 40 },
+      new Button({ label: '📊  EXECUTAR BENCHMARK', cx, cy: 300, w: 290, h: 40 },
         () => this.bus.emit('scene:benchmark', {})),
 
       ...ALL_ALGORITHMS.map((alg, i) =>
-        new Button({ label: alg, cx, cy: 490 + i * 54, w: 230, h: 42 },
+        new Button({
+          label: alg,
+          cx: algCols[i % 2],
+          cy: algRows[Math.floor(i / 2)],
+          w: 210, h: 42,
+        },
           () => {
             this.selectedAlg = alg;
             // Atualiza estado `selected` apenas nos botões de algoritmo (índice ≥ 2)

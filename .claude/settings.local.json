@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(xargs cat:*)",
+      "Bash(BASE='/c/Users/Jeandeson Nascimento/Desktop/TCC pathfinding/src/assets/Sounds')",
+      "Bash(rm -f \"$BASE/coin-b.ogg\" \"$BASE/coin-c.ogg\" \"$BASE/coin-d.ogg\" \"$BASE/error-a.ogg\" \"$BASE/error-b.ogg\" \"$BASE/error-c.ogg\" \"$BASE/explosion-a.ogg\" \"$BASE/explosion-b.ogg\" \"$BASE/explosion-c.ogg\" \"$BASE/fall-a.ogg\" \"$BASE/fall-b.ogg\" \"$BASE/hurt-a.ogg\" \"$BASE/hurt-b.ogg\" \"$BASE/hurt-c.ogg\" \"$BASE/hurt-d.ogg\" \"$BASE/hurt-e.ogg\" \"$BASE/jump-b.ogg\" \"$BASE/jump-c.ogg\" \"$BASE/jump-d.ogg\" \"$BASE/jump-e.ogg\" \"$BASE/jump-f.ogg\" \"$BASE/lose-b.ogg\" \"$BASE/lose-c.ogg\" \"$BASE/lose-d.ogg\" \"$BASE/move-a.ogg\" \"$BASE/move-b.ogg\" \"$BASE/move-d.ogg\" \"$BASE/select-a.ogg\" \"$BASE/shoot-a.ogg\" \"$BASE/shoot-b.ogg\" \"$BASE/shoot-c.ogg\" \"$BASE/shoot-d.ogg\" \"$BASE/shoot-e.ogg\" \"$BASE/shoot-f.ogg\" \"$BASE/shoot-g.ogg\" \"$BASE/shoot-h.ogg\")"
     ]
   }
 }
