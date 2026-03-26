@@ -13,9 +13,13 @@ export enum PathfindingAlgorithm {
   Dijkstra = 'Dijkstra',
   BFS      = 'BFS',
   DFS      = 'DFS',
+  JPS      = 'JPS',
 }
 
 export class PathfindingSystem {
+  /** Número de nós examinados na última chamada a findPath (usado no benchmark do JPS). */
+  public nodesVisited = 0;
+
   constructor(private readonly grid: Grid) {}
 
   findPath(
@@ -26,12 +30,14 @@ export class PathfindingSystem {
     if (!start.walkable || !goal.walkable) return null;
 
     this.grid.resetPathfindingData();
+    this.nodesVisited = 0;
 
     switch (algorithm) {
       case PathfindingAlgorithm.AStar:    return this.aStar(start, goal);
       case PathfindingAlgorithm.Dijkstra: return this.dijkstra(start, goal);
       case PathfindingAlgorithm.BFS:      return this.bfs(start, goal);
       case PathfindingAlgorithm.DFS:      return this.dfs(start, goal);
+      case PathfindingAlgorithm.JPS:      return this.jps(start, goal);
     }
   }
 
@@ -143,6 +149,166 @@ export class PathfindingSystem {
       }
     }
     return null;
+  }
+
+  // ── JPS (Jump Point Search) ───────────────────────────────────────────────
+  // Implementação para grade 4-direcional (cardeal) com movimentos uniformes.
+  // Referência: Harabor & Grastien, "Online Graph Pruning for Pathfinding on
+  // Grid Maps", AAAI 2011 (doi:10.5555/2900728.2900921).
+  //
+  // Ideia central: em vez de expandir cada célula individualmente como no A*
+  // clássico, o JPS "salta" ao longo de linhas retas até encontrar um
+  // "ponto de salto" — uma célula que possui vizinhos forçados (cujo caminho
+  // ótimo obrigatoriamente passa pelo nó atual) ou que é o próprio objetivo.
+  // Isso reduz drasticamente o número de nós adicionados à lista aberta.
+
+  private jps(start: Cell, goal: Cell): Cell[] | null {
+    const open:   Cell[]     = [start];
+    const closed: Set<Cell>  = new Set();
+
+    start.g = 0;
+    start.h = this.heuristic(start, goal);
+    start.f = start.h;
+
+    while (open.length > 0) {
+      const current = this.extractMin(open, 'f');
+      if (current === goal) return this.buildJPSPath(current);
+
+      closed.add(current);
+      this.nodesVisited++;
+
+      for (const [dx, dy] of this.jpsDirections(current)) {
+        const jp = this.jpsJump(current.x, current.y, dx, dy, goal);
+        if (!jp || closed.has(jp)) continue;
+
+        // Distância entre dois jump points em linha reta = distância Manhattan
+        const g = current.g + this.heuristic(current, jp);
+
+        if (!open.includes(jp)) {
+          jp.parent = current;
+          jp.g      = g;
+          jp.h      = this.heuristic(jp, goal);
+          jp.f      = jp.g + jp.h;
+          open.push(jp);
+        } else if (g < jp.g) {
+          jp.parent = current;
+          jp.g      = g;
+          jp.f      = jp.g + jp.h;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Retorna as direções de busca a partir de um nó, aplicando as regras de
+   * poda do JPS para grades 4-direcionais.
+   *
+   * Sem pai → busca em todas as 4 direções cardeais.
+   * Com pai → mantém a direção natural e adiciona direções de vizinhos forçados.
+   *
+   * Vizinho forçado: nó que só pode ser atingido de forma ótima passando pelo
+   * nó atual (há um obstáculo que bloqueia o caminho direto a partir do pai).
+   */
+  private jpsDirections(node: Cell): [number, number][] {
+    if (!node.parent) {
+      return [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    }
+
+    const dx = Math.sign(node.x - node.parent.x);
+    const dy = Math.sign(node.y - node.parent.y);
+    const dirs: [number, number][] = [];
+
+    if (dx !== 0) {
+      // Movimento horizontal: direção natural + verificação de forçados verticais
+      dirs.push([dx, 0]);
+      if (this.walkable(node.x, node.y + 1) && !this.walkable(node.x - dx, node.y + 1))
+        dirs.push([0, 1]);
+      if (this.walkable(node.x, node.y - 1) && !this.walkable(node.x - dx, node.y - 1))
+        dirs.push([0, -1]);
+    } else {
+      // Movimento vertical: direção natural + verificação de forçados horizontais
+      dirs.push([0, dy]);
+      if (this.walkable(node.x + 1, node.y) && !this.walkable(node.x + 1, node.y - dy))
+        dirs.push([1, 0]);
+      if (this.walkable(node.x - 1, node.y) && !this.walkable(node.x - 1, node.y - dy))
+        dirs.push([-1, 0]);
+    }
+
+    return dirs;
+  }
+
+  /**
+   * Salta iterativamente a partir de (x, y) na direção (dx, dy).
+   * Retorna o primeiro jump point encontrado, ou null se bater em obstáculo/borda.
+   */
+  private jpsJump(x: number, y: number, dx: number, dy: number, goal: Cell): Cell | null {
+    let cx = x + dx;
+    let cy = y + dy;
+
+    while (true) {
+      if (!this.grid.isValid(cx, cy) || !this.grid.cells[cy][cx].walkable) return null;
+
+      this.nodesVisited++;
+      const cell = this.grid.cells[cy][cx];
+
+      if (cell === goal) return cell;
+      if (this.jpsHasForced(cx, cy, dx, dy)) return cell;
+
+      cx += dx;
+      cy += dy;
+    }
+  }
+
+  /**
+   * Verifica se a célula (x, y), alcançada movendo-se na direção (dx, dy),
+   * possui pelo menos um vizinho forçado — indicando que é um jump point.
+   */
+  private jpsHasForced(x: number, y: number, dx: number, dy: number): boolean {
+    if (dx !== 0) {
+      if (this.walkable(x, y + 1) && !this.walkable(x - dx, y + 1)) return true;
+      if (this.walkable(x, y - 1) && !this.walkable(x - dx, y - 1)) return true;
+    } else {
+      if (this.walkable(x + 1, y) && !this.walkable(x + 1, y - dy)) return true;
+      if (this.walkable(x - 1, y) && !this.walkable(x - 1, y - dy)) return true;
+    }
+    return false;
+  }
+
+  /** Verifica se (x, y) está dentro da grade e é transitável. */
+  private walkable(x: number, y: number): boolean {
+    return this.grid.isValid(x, y) && this.grid.cells[y][x].walkable;
+  }
+
+  /**
+   * Reconstrói o caminho completo a partir dos jump points, interpolando as
+   * células intermediárias para que o agente possa se mover célula a célula.
+   */
+  private buildJPSPath(goal: Cell): Cell[] {
+    const jumpPoints: Cell[] = [];
+    let node: Cell | null = goal;
+    while (node) { jumpPoints.push(node); node = node.parent; }
+    jumpPoints.reverse();
+
+    const fullPath: Cell[] = [];
+    for (let i = 0; i < jumpPoints.length - 1; i++) {
+      const from = jumpPoints[i];
+      const to   = jumpPoints[i + 1];
+      fullPath.push(from);
+
+      // Caminha em linha reta de `from` até `to` (sempre cardeal em 4-dir)
+      const sdx = Math.sign(to.x - from.x);
+      const sdy = Math.sign(to.y - from.y);
+      let cx = from.x + sdx;
+      let cy = from.y + sdy;
+      while (cx !== to.x || cy !== to.y) {
+        fullPath.push(this.grid.cells[cy][cx]);
+        cx += sdx;
+        cy += sdy;
+      }
+    }
+    fullPath.push(jumpPoints[jumpPoints.length - 1]);
+    return fullPath;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

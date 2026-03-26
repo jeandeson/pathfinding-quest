@@ -19,6 +19,7 @@ export enum PathfindingAlgorithm {
   Dijkstra = 'Dijkstra',
   BFS      = 'BFS',
   DFS      = 'DFS',
+  JPS      = 'JPS',
 }
 
 export const ALL_ALGORITHMS = [
@@ -26,4 +27,5 @@ export const ALL_ALGORITHMS = [
   PathfindingAlgorithm.Dijkstra,
   PathfindingAlgorithm.BFS,
   PathfindingAlgorithm.DFS,
+  PathfindingAlgorithm.JPS,
 ] as const;

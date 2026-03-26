@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 node_modules/*
 dist/*
+tcc.md
+tcc_coments.md
+.claude
+refs.bib

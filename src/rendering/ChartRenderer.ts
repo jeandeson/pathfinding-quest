@@ -13,6 +13,7 @@ export const ALGO_COLORS: Record<PathfindingAlgorithm, string> = {
   [PathfindingAlgorithm.Dijkstra]: '#ffaa44',
   [PathfindingAlgorithm.BFS]:      '#55dd77',
   [PathfindingAlgorithm.DFS]:      '#ff6688',
+  [PathfindingAlgorithm.JPS]:      '#cc88ff',
 };
 
 export interface ChartArea {

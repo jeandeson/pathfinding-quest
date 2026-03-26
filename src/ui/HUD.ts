@@ -43,9 +43,9 @@ export class HUD {
       &nbsp;|&nbsp;${dashLabel}
       &nbsp;|&nbsp;<span style="color:#aef">Espaço = Pular · D = Debug</span><br>
       <small>
-        Player: <b>${playerAlg}</b> (1–4)
+        Player: <b>${playerAlg}</b> (1–5)
         &nbsp;|&nbsp;
-        Inimigos: <b>${enemyAlg}</b> (Q/W/E/R)
+        Inimigos: <b>${enemyAlg}</b> (Q/W/E/R/T)
       </small>`;
   }
 }

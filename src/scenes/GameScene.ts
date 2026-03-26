@@ -212,6 +212,7 @@ export class GameScene implements IScene {
       ['2', PathfindingAlgorithm.Dijkstra],
       ['3', PathfindingAlgorithm.BFS],
       ['4', PathfindingAlgorithm.DFS],
+      ['5', PathfindingAlgorithm.JPS],
     ];
     for (const [key, alg] of playerAlgMap) {
       if (this.input.wasJustPressed(key) && this.playerAlg !== alg) {
@@ -225,6 +226,7 @@ export class GameScene implements IScene {
       ['w', PathfindingAlgorithm.Dijkstra],
       ['e', PathfindingAlgorithm.BFS],
       ['r', PathfindingAlgorithm.DFS],
+      ['t', PathfindingAlgorithm.JPS],
     ];
     for (const [key, alg] of enemyAlgMap) {
       if (this.input.wasJustPressed(key) && this.enemyAlg !== alg) {

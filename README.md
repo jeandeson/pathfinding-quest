@@ -16,11 +16,12 @@ Do ponto de vista do jogo, o jogador controla um personagem que precisa coletar 
 
 ## Funcionalidades
 
-- **4 algoritmos de pathfinding** implementados do zero, sem bibliotecas externas
+- **5 algoritmos de pathfinding** implementados do zero, sem bibliotecas externas
   - A\* com heurística de distância Manhattan
   - Dijkstra (custo uniforme)
   - BFS (Busca em Largura)
   - DFS (Busca em Profundidade, com aleatorização leve para evitar caminhos repetitivos)
+  - JPS — Jump Point Search (otimização do A\* para grades uniformes)
 - **Troca de algoritmo em tempo real** — tanto para o jogador quanto para os inimigos
 - **Modo Benchmark** — roda os 4 algoritmos em múltiplos tamanhos de grade e densidades de obstáculos, exibindo gráficos comparativos de tempo e nós visitados
 - **Mecânicas de jogo**: Dash (velocidade), Pulo (pular obstáculos), coleta de itens, saída condicional
@@ -93,6 +94,7 @@ Colete todas as **12 maçãs** espalhadas pelo mapa. Quando a última maçã for
 | `2` | Dijkstra |
 | `3` | BFS |
 | `4` | DFS |
+| `5` | JPS |
 
 ### Trocar Algoritmo dos Inimigos
 
@@ -102,6 +104,7 @@ Colete todas as **12 maçãs** espalhadas pelo mapa. Quando a última maçã for
 | `W` | Dijkstra |
 | `E` | BFS |
 | `R` | DFS |
+| `T` | JPS |
 
 ### Dicas
 - O **Dash** tem cooldown de 1,5 segundo — use com sabedoria.
@@ -124,6 +127,9 @@ Explora o grafo nível a nível, garantindo o caminho com **menor número de pas
 
 ### DFS (Depth-First Search)
 Explora recursivamente o máximo possível antes de retroceder. **Não garante o caminho ótimo** — o caminho encontrado costuma ser mais longo. É o mais imprevisível dos quatro e interessante para demonstrar a diferença qualitativa em relação aos demais.
+
+### JPS (Jump Point Search)
+Otimização do A\* para grades uniformes proposta por Harabor & Grastien (2011). Em vez de expandir cada célula individualmente, o JPS **salta** ao longo de linhas retas até encontrar um "ponto de salto" — uma célula com vizinhos forçados cuja rota ótima obrigatoriamente passa por ali. Isso reduz drasticamente o número de nós adicionados à lista aberta, mantendo a garantia de caminho ótimo do A\*. Implementado para movimentos 4-direcionais (cardeais).
 
 ---
 

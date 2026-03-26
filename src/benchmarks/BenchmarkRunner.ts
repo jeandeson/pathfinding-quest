@@ -33,6 +33,7 @@ const ALL_ALGORITHMS = [
   PathfindingAlgorithm.Dijkstra,
   PathfindingAlgorithm.BFS,
   PathfindingAlgorithm.DFS,
+  PathfindingAlgorithm.JPS,
 ];
 
 /** Cede um frame ao browser antes de continuar — mantém a UI viva */
@@ -41,8 +42,14 @@ function yieldFrame(): Promise<void> {
 }
 
 /**
- * Executa findPath instrumentando getNeighbors para contar nós visitados.
- * Restaura o método original após a chamada (não-destrutivo).
+ * Executa findPath e contabiliza os nós visitados.
+ *
+ * Para A*, Dijkstra, BFS e DFS: instrumenta getNeighbors (chamado uma vez
+ * por nó expandido) para manter compatibilidade com os dados históricos.
+ *
+ * Para JPS: lê pathfinder.nodesVisited, que é incrementado internamente
+ * durante os saltos — o JPS não chama getNeighbors da mesma forma, pois
+ * percorre linhas retas sem expandir cada nó individualmente.
  */
 function runWithCount(
   grid:       Grid,
@@ -51,6 +58,18 @@ function runWithCount(
   startY: number, startX: number,
   goalY:  number, goalX:  number,
 ): { path: ReturnType<PathfindingSystem['findPath']>; nodesVisited: number } {
+  if (alg === PathfindingAlgorithm.JPS) {
+    const t0   = performance.now(); // timing externo não é usado aqui — só o path importa
+    const path = pathfinder.findPath(
+      grid.cells[startY][startX],
+      grid.cells[goalY][goalX],
+      alg,
+    );
+    void t0;
+    return { path, nodesVisited: pathfinder.nodesVisited };
+  }
+
+  // Algoritmos clássicos: instrumenta getNeighbors
   let nodesVisited = 0;
   const original   = grid.getNeighbors.bind(grid);
 
@@ -203,7 +222,7 @@ export class BenchmarkRunner {
       { y:  5, x: 35, label: 'Objetivo Dinâmico — Etapa 3' },
     ];
 
-    const algs = [PathfindingAlgorithm.AStar, PathfindingAlgorithm.Dijkstra];
+    const algs = [PathfindingAlgorithm.AStar, PathfindingAlgorithm.Dijkstra, PathfindingAlgorithm.JPS];
     for (const alg of algs) {
       for (const goal of goals) {
         grid.cells[goal.y][goal.x].walkable = true;
@@ -255,11 +274,11 @@ export class BenchmarkRunner {
   }
 
   private estimateTotal(): number {
-    // density: 2 sizes × 4 densities × 4 algs = 32
-    // scalability: 4 algs × 5 npcCounts       = 20
-    // congestion: 4 algs × 3 chokeLevels       = 12
-    // dynamicGoals: 2 algs × 3 goals           =  6
-    return 32 + 20 + 12 + 6; // = 70
+    // density: 2 sizes × 4 densities × 5 algs = 40
+    // scalability: 5 algs × 5 npcCounts       = 25
+    // congestion: 5 algs × 3 chokeLevels       = 15
+    // dynamicGoals: 3 algs × 3 goals           =  9
+    return 40 + 25 + 15 + 9; // = 89
   }
 
   // ── Exportação ─────────────────────────────────────────────────────────────
