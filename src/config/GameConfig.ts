@@ -36,10 +36,10 @@ export const GameConfig = {
     ITEM_VALUE: 10,
   },
   ASSETS: {
-    PLAYER_SPRITE: 'src/assets/PNG/Players/Tilemap/tilemap_packed.png',
-    ENEMY_SPRITE:  'src/assets/PNG/Enemies/Tilemap/tilemap_packed.png',
-    TILESET:       'src/assets/PNG/Tiles/Tilemap/tilemap_packed.png',
-    OBSTACLE:      'src/assets/PNG/Tiles/Tilemap/tilemap_packed.png',
+    PLAYER_SPRITE: 'assets/PNG/Players/Tilemap/tilemap_packed.png',
+    ENEMY_SPRITE:  'assets/PNG/Enemies/Tilemap/tilemap_packed.png',
+    TILESET:       'assets/PNG/Tiles/Tilemap/tilemap_packed.png',
+    OBSTACLE:      'assets/PNG/Tiles/Tilemap/tilemap_packed.png',
     // 3 variantes de chão para quebrar a monotonia (row 3, cols 0-2)
     GROUND_TILES: [
       { x: 86,  y: 10, size: 16 },   // col 0 – chão principal

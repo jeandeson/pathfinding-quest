@@ -23,9 +23,9 @@ export type GameEvents = {
 // ── Asset manifest ───────────────────────────────────────────────────────────
 
 const ASSET_MANIFEST: Record<string, string> = {
-  tileset: 'src/assets/PNG/Tiles/Tilemap/tilemap_packed.png',
-  player:  'src/assets/PNG/Players/Tilemap/tilemap_packed.png',
-  enemy:   'src/assets/PNG/Enemies/Tilemap/tilemap_packed.png',
+  tileset: 'assets/PNG/Tiles/Tilemap/tilemap_packed.png',
+  player:  'assets/PNG/Players/Tilemap/tilemap_packed.png',
+  enemy:   'assets/PNG/Enemies/Tilemap/tilemap_packed.png',
 };
 
 // ── Game ─────────────────────────────────────────────────────────────────────
@@ -66,14 +66,14 @@ export class Game {
   async start(): Promise<void> {
     await AssetManager.preload(ASSET_MANIFEST);
     SoundManager.preload({
-      coin: 'src/assets/Sounds/coin-a.ogg',
-      jump: 'src/assets/Sounds/jump-a.ogg',
-      move: 'src/assets/Sounds/move-c.ogg',
-      lose: 'src/assets/Sounds/lose-a.ogg',
+      coin: 'assets/Sounds/coin-a.ogg',
+      jump: 'assets/Sounds/jump-a.ogg',
+      move: 'assets/Sounds/move-c.ogg',
+      lose: 'assets/Sounds/lose-a.ogg',
     });
     SoundManager.preloadMusic({
-      'menu-song': 'src/assets/Sounds/menu-song.mp3',
-      'bg-song':   'src/assets/Sounds/bg-song.mp3',
+      'menu-song': 'assets/Sounds/menu-song.mp3',
+      'bg-song':   'assets/Sounds/bg-song.mp3',
     });
     this.switchScene(new MenuScene(this.canvas, this.bus, this.input));
     requestAnimationFrame(this.loop);
