@@ -34,7 +34,7 @@ export class BenchmarkScene implements IScene {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    private readonly ctx:    CanvasRenderingContext2D,
+    _ctx: CanvasRenderingContext2D,
     private readonly input:  InputManager,
     private readonly onMenu: () => void,
   ) {}

@@ -15,7 +15,7 @@ export class AssetManager {
   static preload(manifest: Record<string, string>): Promise<void> {
     const pending = Object.entries(manifest).map(([key, src]) => {
       if (this.cache.has(key)) return Promise.resolve();
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve, _reject) => {
         const img = new Image();
         img.onload  = () => { this.cache.set(key, img); resolve(); };
         img.onerror = () => {

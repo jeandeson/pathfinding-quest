@@ -15,7 +15,7 @@ export class Grid {
   public readonly cellSize: number;
   public readonly cells: Cell[][];
 
-  constructor(rows = ROWS, cols = COLS, cellSize = CELL_SIZE) {
+  constructor(rows: number = ROWS, cols: number = COLS, cellSize: number = CELL_SIZE) {
     this.rows     = rows;
     this.cols     = cols;
     this.cellSize = cellSize;
