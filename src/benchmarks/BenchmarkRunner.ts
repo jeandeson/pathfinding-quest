@@ -7,6 +7,7 @@
 
 import { Grid }                                    from '../world/Grid';
 import { PathfindingSystem, PathfindingAlgorithm } from '../pathfinding/PathfindingSystem';
+import { makeRng }                                 from '../utils/seededRandom';
 
 export interface BenchmarkResult {
   testName:        string;
@@ -104,7 +105,7 @@ export class BenchmarkRunner {
     for (const { rows, cols } of sizes) {
       for (const density of densities) {
         const grid       = new Grid(rows, cols, 10);
-        grid.generateObstacles(density);
+        grid.generateObstacles(density, 1001 + rows + Math.round(density * 100));
         const pathfinder = new PathfindingSystem(grid);
 
         for (const alg of ALL_ALGORITHMS) {
@@ -133,7 +134,7 @@ export class BenchmarkRunner {
   private suiteScalability(): BenchmarkResult[] {
     const out: BenchmarkResult[] = [];
     const grid       = new Grid(20, 20, 10);
-    grid.generateObstacles(0.2);
+    grid.generateObstacles(0.2, 2001);
     const pathfinder = new PathfindingSystem(grid);
     const npcCounts  = [1, 5, 10, 20, 50];
 
@@ -175,12 +176,13 @@ export class BenchmarkRunner {
 
     for (const choke of chokeLevels) {
       const grid = new Grid(30, 30, 10);
-      grid.generateObstacles(0);
+      grid.generateObstacles(0, 3000 + Math.round(choke * 1000));
       const mid = Math.floor(grid.cols / 2);
+      const rng = makeRng(3000 + Math.round(choke * 1000));
 
       for (let y = 0; y < grid.rows; y++)
         for (let x = 0; x < grid.cols; x++)
-          if (Math.random() < choke && x !== mid)
+          if (rng() < choke && x !== mid)
             grid.cells[y][x].walkable = false;
 
       grid.cells[0][mid].walkable             = true;
@@ -213,7 +215,7 @@ export class BenchmarkRunner {
   private suiteDynamicGoals(): BenchmarkResult[] {
     const out: BenchmarkResult[] = [];
     const grid = new Grid(40, 40, 10);
-    grid.generateObstacles(0.25);
+    grid.generateObstacles(0.25, 4001);
     const pathfinder = new PathfindingSystem(grid);
 
     const goals = [

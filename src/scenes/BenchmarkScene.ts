@@ -27,6 +27,7 @@ export class BenchmarkScene implements IScene {
   private progress: BenchmarkProgress = { completed: 0, total: 70, current: 'Aguardando...' };
   private results:   BenchmarkResult[] = [];
   private activeTab: Tab = 'density';
+  private runner:    BenchmarkRunner | null = null;
 
   private buttons:    Button[] = [];
   private tabButtons: Button[] = [];
@@ -58,11 +59,21 @@ export class BenchmarkScene implements IScene {
 
   private buildButtons(): void {
     const W = this.canvas.width, H = this.canvas.height;
+    const cy = H - 38;
 
-    this.buttons = [
-      new Button({ label: '▶ Executar Testes', cx: W / 2 - 110, cy: H - 38, w: 210, h: 44, primary: true }, () => this.runTests()),
-      new Button({ label: '← Menu',            cx: 72,          cy: H - 38, w: 110, h: 44 },               () => this.onMenu()),
-    ];
+    if (this.done) {
+      this.buttons = [
+        new Button({ label: '← Menu',        cx: 72,        cy, w: 110, h: 44 },               () => this.onMenu()),
+        new Button({ label: '↺ Repetir',      cx: 260,       cy, w: 150, h: 44 },               () => this.runTests()),
+        new Button({ label: '⬇ Baixar PNG',   cx: W / 2,     cy, w: 190, h: 44, primary: true }, () => this.downloadPNG()),
+        new Button({ label: '⬇ Exportar CSV', cx: W - 160,   cy, w: 210, h: 44, primary: true }, () => this.downloadCSV()),
+      ];
+    } else {
+      this.buttons = [
+        new Button({ label: '▶ Executar Testes', cx: W / 2 - 110, cy, w: 210, h: 44, primary: true }, () => this.runTests()),
+        new Button({ label: '← Menu',            cx: 72,          cy, w: 110, h: 44 },               () => this.onMenu()),
+      ];
+    }
 
     // 5 abas uniformemente distribuídas em 1280px
     this.tabButtons = TABS.map((tab, i) =>
@@ -98,10 +109,30 @@ export class BenchmarkScene implements IScene {
     this.running = true;
     this.done    = false;
     this.results = [];
-    const runner = new BenchmarkRunner();
-    this.results = await runner.run(p => { this.progress = p; });
+    this.runner  = new BenchmarkRunner();
+    this.results = await this.runner.run(p => { this.progress = p; });
     this.running = false;
     this.done    = true;
+    this.buildButtons();
+  }
+
+  private downloadPNG(): void {
+    const link = document.createElement('a');
+    link.download = `benchmark_${this.activeTab}.png`;
+    link.href     = this.canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  private downloadCSV(): void {
+    if (!this.runner) return;
+    const csv  = this.runner.toCSV();
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = 'benchmark_results.csv';
+    link.href     = url;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Loop ───────────────────────────────────────────────────────────────────

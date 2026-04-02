@@ -6,6 +6,7 @@
 
 import { Cell } from './Cell';
 import { GameConfig } from '../config/GameConfig';
+import { makeRng } from '../utils/seededRandom';
 
 const { ROWS, COLS, CELL_SIZE } = GameConfig.GRID;
 
@@ -44,20 +45,27 @@ export class Grid {
   /**
    * Gera obstáculos e garante que [0,0] e [cols-1,rows-1] estejam conectados.
    * Tenta até MAX_RETRIES vezes antes de usar fallback sem obstáculos.
+   *
+   * @param density  Fração de células bloqueadas (0–1).
+   * @param seed     Semente opcional para geração determinística. Quando
+   *                 fornecida, cada tentativa usa `seed + attempt`, garantindo
+   *                 que retries variem mas o resultado seja reproduzível.
+   *                 Sem semente, usa Math.random() (comportamento padrão do jogo).
    */
-  public generateObstacles(density: number): void {
+  public generateObstacles(density: number, seed?: number): void {
     const MAX_RETRIES = 10;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      this.placeObstacles(density);
+      const rng = seed !== undefined ? makeRng(seed + attempt) : () => Math.random();
+      this.placeObstacles(density, rng);
       if (this.bfsConnected(0, 0, this.cols - 1, this.rows - 1)) return;
     }
     // Fallback: mapa totalmente aberto
     for (const row of this.cells)
       for (const c of row) { c.walkable = true; c.hasItem = false; }
-    this.spawnItems(GameConfig.GRID.ITEM_COUNT);
+    this.spawnItems(GameConfig.GRID.ITEM_COUNT, () => Math.random());
   }
 
-  private placeObstacles(density: number): void {
+  private placeObstacles(density: number, rng: () => number): void {
     // Reset
     for (const row of this.cells)
       for (const c of row) { c.walkable = true; c.hasItem = false; }
@@ -74,14 +82,14 @@ export class Grid {
     // Obstáculos aleatórios (respeitando as pontas)
     for (let y = 0; y < this.rows; y++)
       for (let x = 0; x < this.cols; x++)
-        if (Math.random() < density && !this.isCorner(x, y))
+        if (rng() < density && !this.isCorner(x, y))
           this.cells[y][x].walkable = false;
 
     // Garante que cantos iniciais e finais são transitáveis
     this.cells[0][0].walkable                         = true;
     this.cells[this.rows - 1][this.cols - 1].walkable = true;
 
-    this.spawnItems(GameConfig.GRID.ITEM_COUNT);
+    this.spawnItems(GameConfig.GRID.ITEM_COUNT, rng);
   }
 
   private isCorner(x: number, y: number): boolean {
@@ -170,11 +178,11 @@ export class Grid {
 
   // ── Itens ──────────────────────────────────────────────────────────────────
 
-  private spawnItems(count: number): void {
+  private spawnItems(count: number, rng: () => number): void {
     let spawned = 0, tries = 0;
     while (spawned < count && tries++ < 500) {
-      const x = Math.floor(Math.random() * this.cols);
-      const y = Math.floor(Math.random() * this.rows);
+      const x = Math.floor(rng() * this.cols);
+      const y = Math.floor(rng() * this.rows);
       const c = this.cells[y][x];
       if (c.walkable && !c.hasItem && !this.isCorner(x, y)) {
         c.hasItem = true;

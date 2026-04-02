@@ -217,30 +217,25 @@ export class PathfindingSystem {
 
     const dx = Math.sign(node.x - node.parent.x);
     const dy = Math.sign(node.y - node.parent.y);
-    const dirs: [number, number][] = [];
 
-    if (dx !== 0) {
-      // Movimento horizontal: direção natural + verificação de forçados verticais
-      dirs.push([dx, 0]);
-      if (this.walkable(node.x, node.y + 1) && !this.walkable(node.x - dx, node.y + 1))
-        dirs.push([0, 1]);
-      if (this.walkable(node.x, node.y - 1) && !this.walkable(node.x - dx, node.y - 1))
-        dirs.push([0, -1]);
-    } else {
-      // Movimento vertical: direção natural + verificação de forçados horizontais
-      dirs.push([0, dy]);
-      if (this.walkable(node.x + 1, node.y) && !this.walkable(node.x + 1, node.y - dy))
-        dirs.push([1, 0]);
-      if (this.walkable(node.x - 1, node.y) && !this.walkable(node.x - 1, node.y - dy))
-        dirs.push([-1, 0]);
-    }
-
-    return dirs;
+    // Em grades 4-direcionais, ao expandir um jump point devemos sempre
+    // explorar as direções perpendiculares — não apenas quando há vizinho
+    // forçado — porque o próprio jump point pode ter sido identificado via
+    // verificação recursiva perpendicular (sem obstáculo próximo).
+    if (dx !== 0) return [[dx, 0], [0, 1], [0, -1]];
+    else          return [[0, dy], [1, 0], [-1, 0]];
   }
 
   /**
    * Salta iterativamente a partir de (x, y) na direção (dx, dy).
    * Retorna o primeiro jump point encontrado, ou null se bater em obstáculo/borda.
+   *
+   * Em grades 4-direcionais, uma célula (cx, cy) é jump point se:
+   *   1. É o objetivo; OU
+   *   2. Possui vizinho forçado; OU
+   *   3. Uma sondagem perpendicular simples a partir dela encontra o objetivo
+   *      ou um vizinho forçado (necessário para detectar pontos de curva em
+   *      corredores sem obstáculos próximos).
    */
   private jpsJump(x: number, y: number, dx: number, dy: number, goal: Cell): Cell | null {
     let cx = x + dx;
@@ -255,9 +250,35 @@ export class PathfindingSystem {
       if (cell === goal) return cell;
       if (this.jpsHasForced(cx, cy, dx, dy)) return cell;
 
+      // Sondagem perpendicular linear (sem recursão — evita explosão exponencial)
+      if (dx !== 0) {
+        if (this.jpsProbe(cx, cy, 0,  1, goal)) return cell;
+        if (this.jpsProbe(cx, cy, 0, -1, goal)) return cell;
+      } else {
+        if (this.jpsProbe(cx, cy,  1, 0, goal)) return cell;
+        if (this.jpsProbe(cx, cy, -1, 0, goal)) return cell;
+      }
+
       cx += dx;
       cy += dy;
     }
+  }
+
+  /**
+   * Sondagem linear simples em linha reta a partir de (x, y) na direção (dx, dy).
+   * Retorna true se encontrar o objetivo ou uma célula com vizinho forçado.
+   * Não faz chamadas recursivas — usada para detectar jump points perpendiculares.
+   */
+  private jpsProbe(x: number, y: number, dx: number, dy: number, goal: Cell): boolean {
+    let cx = x + dx;
+    let cy = y + dy;
+    while (this.grid.isValid(cx, cy) && this.grid.cells[cy][cx].walkable) {
+      if (this.grid.cells[cy][cx] === goal)           return true;
+      if (this.jpsHasForced(cx, cy, dx, dy))          return true;
+      cx += dx;
+      cy += dy;
+    }
+    return false;
   }
 
   /**
