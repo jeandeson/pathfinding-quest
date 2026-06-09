@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>TCC chart</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #1A1230; width: 1600px; height: 900px; overflow: hidden; }
+  body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; color: #FFF; padding: 40px 60px; box-sizing: border-box; }
+  .header { margin-bottom: 16px; }
+  .h1 { font-size: 26px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px; }
+  .h2 { font-size: 14px; color: #8A7CB0; }
+  .legend { display: inline-block; margin-left: 24px; }
+  .canvas-box { width: 100%; height: 760px; position: relative; }
+  canvas { display: block; }
+  .footnote { position: absolute; bottom: 20px; right: 60px; font-size: 12px; color: #8A7CB0; font-style: italic; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="h1" id="title"></div>
+    <div class="h2" id="subtitle"></div>
+  </div>
+  <div class="canvas-box">
+    <canvas id="chart" width="1480" height="760"></canvas>
+  </div>
+  <div class="footnote" id="footnote"></div>
+
+<script src="chart.umd.js"></script>
+<script src="chart_data.js"></script>
+<script>
+// Dados vêm SEMPRE do CSV via build_chart_data.mjs → chart_data.js (fonte única).
+const CD = window.CHART_DATA;
+// Formatação numérica pt-BR (vírgula decimal), igual às tabelas/slides.
+// Arredonda igual ao round2 do verify_tables (Math.round), garantindo que os
+// rótulos do gráfico coincidam com as tabelas do TCC mesmo em limites .xx5.
+const brfmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',');
+
+// ─── Tema ─────────────────────────────────────────────────────────────────────
+// ?theme=dark (padrão, slides) | ?theme=light (documento/PDF, fundo branco).
+// O caminho 'dark' tem valores IDÊNTICOS aos originais — slides não mudam.
+const THEME = new URLSearchParams(location.search).get('theme') || 'dark';
+const T = THEME === 'light'
+  ? { bg: '#FFFFFF', text: '#2A2440', title: '#1A1230', textMute: '#6A5C8A', border: '#D8CFE8',
+      grid: 'rgba(60,40,110,0.10)', gridY: 'rgba(60,40,110,0.16)',
+      labelBg: 'rgba(255,255,255,0.85)', labelText: '#1A1230', ref: '#C8881E' }
+  : { bg: '#1A1230', text: '#D0C0E8', title: '#FFFFFF', textMute: '#8A7CB0', border: '#3a2a5a',
+      grid: 'rgba(120,90,180,0.12)', gridY: 'rgba(120,90,180,0.18)',
+      labelBg: 'rgba(15,10,30,0.92)', labelText: '#FFFFFF', ref: '#FFE066' };
+document.documentElement.style.background = T.bg;
+document.body.style.background = T.bg;
+document.body.style.color = T.text;
+document.getElementById('title').style.color = T.title;
+document.getElementById('subtitle').style.color = T.textMute;
+document.getElementById('footnote').style.color = T.textMute;
+
+// ─── Algorithm color palette ────────────────────────────────────────────────
+const COLORS = {
+  'A*':       { bg: '#88AAFF', border: '#88AAFF' },
+  'Dijkstra': { bg: '#FFAA44', border: '#FFAA44' },
+  'BFS':      { bg: '#5FD68A', border: '#5FD68A' },
+  'DFS':      { bg: '#FF7755', border: '#FF7755' },
+  'JPS':      { bg: '#E040A0', border: '#E040A0' },
+};
+const ALGOS = ['A*', 'Dijkstra', 'BFS', 'DFS', 'JPS'];
+
+// ─── Common Chart.js theming ────────────────────────────────────────────────
+Chart.defaults.color = T.text;
+Chart.defaults.font.family = 'Calibri, "Segoe UI", Arial, sans-serif';
+Chart.defaults.font.size = 14;
+Chart.defaults.borderColor = T.border;
+
+const gridX = { color: T.grid, drawBorder: false };
+const gridY = { color: T.gridY, drawBorder: false };
+
+function commonOptions(extra = {}) {
+  return {
+    responsive: false,
+    maintainAspectRatio: false,
+    animation: false,
+    layout: { padding: { top: 50, right: 30, bottom: 10, left: 10 } },
+    plugins: {
+      legend: {
+        position: 'top',
+        align: 'end',
+        labels: {
+          color: T.text,
+          font: { size: 18, weight: '600' },
+          boxWidth: 22,
+          boxHeight: 18,
+          padding: 22,
+        },
+      },
+      tooltip: { enabled: false },
+      title: { display: false },
+      ...((extra.plugins) || {}),
+    },
+    scales: {
+      x: { grid: gridX, ticks: { color: T.text, font: { size: 18, weight: '600' } }, ...extra.x },
+      y: { grid: gridY, ticks: { color: T.text, font: { size: 16 } }, ...extra.y },
+    },
+    ...extra.rest,
+  };
+}
+
+// Custom plugin: draws data values on top of bars (skipped if opts.skip)
+const valuePlugin = {
+  id: 'valuePlugin',
+  afterDatasetsDraw(chart, args, opts) {
+    if (!opts || opts.skip) return;
+    const { ctx } = chart;
+    ctx.save();
+    ctx.textAlign = 'center';
+    chart.data.datasets.forEach((ds, dsi) => {
+      const meta = chart.getDatasetMeta(dsi);
+      if (meta.hidden) return;
+      meta.data.forEach((bar, i) => {
+        const v = ds.data[i];
+        if (v == null) return;
+        const label = (opts.format || (x => x))(v, i, dsi);
+        if (label === '' || label == null) return;
+        const x = bar.x;
+        const y = bar.y;
+        ctx.font = 'bold 18px Calibri';
+        const w = ctx.measureText(label).width + 14;
+        ctx.fillStyle = T.labelBg;
+        ctx.fillRect(x - w / 2, y - 30, w, 24);
+        ctx.fillStyle = T.labelText;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, y - 18);
+      });
+    });
+    ctx.restore();
+  },
+};
+Chart.register(valuePlugin);
+
+// ─── Charts ──────────────────────────────────────────────────────────────────
+
+function chartA() {
+  document.getElementById('title').textContent = 'Nós visitados por algoritmo · Grade 20×20';
+  document.getElementById('subtitle').textContent = 'Impacto da densidade de obstáculos — JPS reduz mais de 99% dos nós em alta densidade';
+  document.getElementById('footnote').textContent = 'Fonte: Tabelas 1 e 2 do TCC';
+  return new Chart(document.getElementById('chart'), {
+    type: 'bar',
+    data: {
+      labels: ALGOS,
+      datasets: [
+        { label: 'Densidade 0,2', data: CD.chartA.d02, backgroundColor: 'rgba(136,170,255,0.85)', borderColor: '#88AAFF', borderWidth: 0, borderRadius: 6, barPercentage: 0.85, categoryPercentage: 0.7 },
+        { label: 'Densidade 0,4', data: CD.chartA.d04, backgroundColor: 'rgba(224,64,160,0.85)', borderColor: '#E040A0', borderWidth: 0, borderRadius: 6, barPercentage: 0.85, categoryPercentage: 0.7 },
+      ],
+    },
+    options: commonOptions({
+      plugins: { valuePlugin: { format: v => v.toString() } },
+      y: { title: { display: true, text: 'Nós visitados', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true },
+      x: { title: { display: false } },
+    }),
+  });
+}
+
+function chartB() {
+  document.getElementById('title').textContent = 'Escalabilidade — Tempo médio vs Número de NPCs';
+  document.getElementById('subtitle').textContent = 'Grade 30×30, densidade 0,2 — corredor central forçado';
+  document.getElementById('footnote').textContent = 'Fonte: Tabela 4 do TCC · linha 16 ms = orçamento de 1 frame a 60 fps';
+
+  const npcs = CD.chartB.npcs;
+  const data = CD.chartB.series;
+
+  return new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: {
+      labels: npcs,
+      datasets: ALGOS.map(a => ({
+        label: a,
+        data: data[a],
+        borderColor: COLORS[a].border,
+        backgroundColor: COLORS[a].bg + '33',
+        borderWidth: 3,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: COLORS[a].border,
+        tension: 0.25,
+      })),
+    },
+    options: commonOptions({
+      plugins: {
+        annotation: undefined,
+        // Rótulo só no ponto final (50 NPCs) p/ não poluir a região baixa; vírgula pt-BR.
+        valuePlugin: { format: (v, i) => i === npcs.length - 1 ? brfmt(v) : '' },
+      },
+      y: { title: { display: true, text: 'Tempo total médio (ms)', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true, suggestedMax: 18 },
+      x: { title: { display: true, text: 'Número de NPCs simultâneos', color: T.text, font: { size: 16, weight: '600' } } },
+    }),
+  });
+}
+
+// Reference line plugin (used by chartB and chartC)
+const hLinePlugin = {
+  id: 'hLine',
+  afterDatasetsDraw(chart, args, opts) {
+    if (!opts || opts.value == null) return;
+    const { ctx, scales } = chart;
+    const y = scales.y.getPixelForValue(opts.value);
+    ctx.save();
+    ctx.strokeStyle = opts.color || T.ref;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(scales.x.left, y);
+    ctx.lineTo(scales.x.right, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = opts.color || T.ref;
+    ctx.font = 'bold 14px Calibri';
+    const align = opts.align || 'right';
+    ctx.textAlign = align;
+    ctx.fillText(opts.label || '', align === 'left' ? scales.x.left + 8 : scales.x.right - 8, y - 8);
+    ctx.restore();
+  },
+};
+Chart.register(hLinePlugin);
+
+function chartBWithRef() {
+  const c = chartB();
+  c.options.plugins.hLine = { value: 16, color: T.ref, label: '16 ms · orçamento de 1 frame (60 fps)', align: 'left' };
+  c.update();
+  return c;
+}
+
+function chartC() {
+  document.getElementById('title').textContent = 'Tempo total médio com 50 NPCs — gargalo no corredor';
+  document.getElementById('subtitle').textContent = 'Grade 30×30, densidade 0,2 — todos permanecem bem abaixo do orçamento de 16 ms';
+  document.getElementById('footnote').textContent = 'Fonte: Tabela 4 do TCC · linha 16 ms = orçamento de 1 frame a 60 fps';
+  return new Chart(document.getElementById('chart'), {
+    type: 'bar',
+    data: {
+      labels: ALGOS,
+      datasets: [{
+        label: 'Tempo médio (ms) — 50 NPCs',
+        data: CD.chartC.values,
+        backgroundColor: ALGOS.map(a => COLORS[a].bg + 'CC'),
+        borderColor: ALGOS.map(a => COLORS[a].border),
+        borderWidth: 0,
+        borderRadius: 8,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      }],
+    },
+    options: commonOptions({
+      plugins: {
+        valuePlugin: { format: v => brfmt(v) + ' ms' },
+        legend: { display: false },
+        hLine: { value: 16, color: T.ref, label: '16 ms · 60 fps' },
+      },
+      y: { title: { display: true, text: 'Tempo médio (ms)', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true, suggestedMax: 18 },
+      x: { ticks: { font: { size: 18, weight: '600' } } },
+    }),
+  });
+}
+
+function chartD() {
+  document.getElementById('title').textContent = 'Comparativo geral — 50 NPCs em grade 20×20';
+  document.getElementById('subtitle').textContent = 'Densidade 0,2 · tempo total para 50 buscas simultâneas';
+  document.getElementById('footnote').textContent = 'Fonte: Tabela 3 do TCC';
+  return new Chart(document.getElementById('chart'), {
+    type: 'bar',
+    data: {
+      labels: ALGOS,
+      datasets: [{
+        label: 'Tempo total (ms)',
+        data: CD.chartD.values,
+        backgroundColor: ALGOS.map(a => COLORS[a].bg + 'CC'),
+        borderColor: ALGOS.map(a => COLORS[a].border),
+        borderWidth: 0,
+        borderRadius: 8,
+        barPercentage: 0.6,
+        categoryPercentage: 0.8,
+      }],
+    },
+    options: commonOptions({
+      plugins: {
+        valuePlugin: { format: v => brfmt(v) + ' ms' },
+        legend: { display: false },
+        hLine: { value: 16, color: T.ref, label: '16 ms · 60 fps' },
+      },
+      y: { title: { display: true, text: 'Tempo total médio (ms)', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true },
+      x: { ticks: { font: { size: 18, weight: '600' } } },
+    }),
+  });
+}
+
+// ─── Router ──────────────────────────────────────────────────────────────────
+const id = new URLSearchParams(location.search).get('id') || 'A';
+const fnMap = { A: chartA, B: chartBWithRef, C: chartC, D: chartD };
+const fn = fnMap[id];
+if (fn) fn();
+else document.body.innerHTML = `<h1>unknown chart: ${id}</h1>`;
+</script>
+</body>
+</html>

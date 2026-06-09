@@ -148,6 +148,51 @@ Os resultados são exibidos em gráficos de barras comparativos diretamente no c
 
 ---
 
+## Reproduzir o Benchmark e Regenerar os Artefatos do TCC
+
+A **fonte única** dos dados é o arquivo `benchmark_results.csv` na raiz do projeto. Tabelas e gráficos do TCC derivam dele — nunca edite números à mão.
+
+### 1. Reexportar o `benchmark_results.csv`
+
+Há duas formas equivalentes (as métricas estruturais — `pathLength`, `nodesVisited`, `success` — são determinísticas via PRNG `mulberry32` com sementes fixas; apenas `timeMs` varia conforme o hardware/navegador):
+
+```bash
+# Opção A — no navegador (gera os tempos usados no TCC):
+#   npm run dev → "Executar Benchmark" → "Exportar CSV"
+#   o arquivo é baixado como benchmark_results.csv
+
+# Opção B — headless via Node (mesmos nós/caminhos; tempos diferem):
+npx tsx scripts/run-benchmark.ts > benchmark_results.csv
+```
+
+> O navegador costuma renomear downloads repetidos para `benchmark_results (n).csv`. Mantenha **apenas** o arquivo canônico `benchmark_results.csv` na raiz (renomeie o último export para esse nome).
+
+### 2. Regenerar gráficos, apresentação e previews
+
+```bash
+cd apresentacao/tools
+node build_chart_data.mjs          # CSV → chart_data.js (sem hardcode)
+node render_charts_pw.mjs dark     # gráficos escuros → apresentacao/charts (slides)
+node render_charts_pw.mjs light    # gráficos claros  → figuras/ (documento/PDF)
+
+# Apresentação institucional (Windows + PowerPoint):
+powershell -File build_from_template.ps1   # → TCC_Apresentacao_Jeandeson.pptx
+powershell -File export_previews.ps1       # → apresentacao/preview/slide_*.png
+```
+
+A renderização dos gráficos usa o Chrome do sistema via `playwright-core` (sem baixar navegador). As figuras claras de `figuras/` são as referenciadas pelo `tcc.md` (`\includegraphics{figuras/chart_A.png}` etc.).
+
+### 3. Verificar consistência (rode antes de cada entrega)
+
+```bash
+node scripts/verify_tables.mjs       # tabelas do tcc.md  ×  benchmark_results.csv
+node scripts/verify_invariants.mjs   # corretude lógica dos dados (otimalidade, escala linear, etc.)
+```
+
+Ambos devem terminar com **0 divergências / 0 falhas**. Se um número do `tcc.md` divergir do CSV após um novo export, `verify_tables.mjs` aponta exatamente qual célula corrigir.
+
+---
+
 ## Estrutura do Projeto
 
 ```

@@ -3,6 +3,11 @@
 // Responsabilidade única: algoritmos de busca de caminho.
 // Recebe a Grid como dependência mas não a modifica — exceto os campos de
 // busca (f, g, h, parent) que são explicitamente feitos para isso.
+//
+// A* / Dijkstra / JPS usam uma fila de prioridade de heap binário (BinaryHeap),
+// garantindo extract-min em O(log n). Combinado com um Set de pertencimento
+// O(1), isso eleva a complexidade do laço principal a O((V + E) log V), em vez
+// do O(V^2) de uma open list em array com varredura linear.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Cell } from '../world/Cell';
@@ -16,8 +21,72 @@ export enum PathfindingAlgorithm {
   JPS      = 'JPS',
 }
 
+// ── Fila de prioridade (heap binário mínimo) ──────────────────────────────────
+// Entrada da open list. `key` é o valor de ordenação (f no A*/JPS, g no Dijkstra)
+// capturado no momento da inserção; `seq` é um contador monotônico de inserção
+// usado APENAS para desempate determinístico (preserva a ordem de descoberta,
+// como fazia a varredura linear anterior). Em melhorias de custo (decrease-key)
+// uma nova entrada é inserida e a obsoleta é descartada na extração — técnica de
+// "lazy deletion", correta sob heurística consistente.
+interface HeapEntry {
+  cell: Cell;
+  key:  number;
+  seq:  number;
+}
+
+export class BinaryHeap {
+  private readonly items: HeapEntry[] = [];
+
+  get size(): number { return this.items.length; }
+
+  push(entry: HeapEntry): void {
+    const a = this.items;
+    a.push(entry);
+    let i = a.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.less(a[i], a[p])) { const t = a[i]; a[i] = a[p]; a[p] = t; i = p; }
+      else break;
+    }
+  }
+
+  pop(): HeapEntry | undefined {
+    const a = this.items;
+    const n = a.length;
+    if (n === 0) return undefined;
+    const top  = a[0];
+    const last = a.pop()!;
+    if (n > 1) {
+      a[0] = last;
+      const len = a.length;
+      let i = 0;
+      while (true) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i;
+        if (l < len && this.less(a[l], a[m])) m = l;
+        if (r < len && this.less(a[r], a[m])) m = r;
+        if (m === i) break;
+        const t = a[i]; a[i] = a[m]; a[m] = t; i = m;
+      }
+    }
+    return top;
+  }
+
+  // Ordem: menor key primeiro; empate resolvido pela menor sequência de inserção.
+  private less(x: HeapEntry, y: HeapEntry): boolean {
+    return x.key < y.key || (x.key === y.key && x.seq < y.seq);
+  }
+}
+
 export class PathfindingSystem {
-  /** Número de nós examinados na última chamada a findPath (usado no benchmark do JPS). */
+  /**
+   * Número de nós EXPANDIDOS (extraídos da open list e processados) na última
+   * chamada a findPath. Contabiliza expansões — nós cujos sucessores são
+   * gerados — de forma uniforme entre todos os algoritmos. No JPS, conta apenas
+   * os jump points expandidos, NÃO as células percorridas internamente pela
+   * rotina de salto (jump/probe), mantendo a métrica comparável ao conceito de
+   * "nodes expanded" da literatura de busca informada.
+   */
   public nodesVisited = 0;
 
   constructor(private readonly grid: Grid) {}
@@ -44,28 +113,36 @@ export class PathfindingSystem {
   // ── A* ────────────────────────────────────────────────────────────────────
 
   private aStar(start: Cell, goal: Cell): Cell[] | null {
-    const open:   Cell[]     = [start];
-    const closed: Set<Cell>  = new Set();
+    const open   = new BinaryHeap();
+    const closed = new Set<Cell>();
+    const seen   = new Set<Cell>();
+    let   seq    = 0;
 
     start.g = 0;
     start.h = this.heuristic(start, goal);
-    start.f = start.h;
+    start.f = start.g + start.h;
+    open.push({ cell: start, key: start.f, seq: seq++ });
+    seen.add(start);
 
-    while (open.length > 0) {
-      const current = this.extractMin(open, 'f');
+    while (open.size > 0) {
+      const current = open.pop()!.cell;
+      if (closed.has(current)) continue;          // entrada obsoleta (lazy deletion)
       if (current === goal) return this.buildPath(current);
 
       closed.add(current);
+      this.nodesVisited++;
 
       for (const nb of this.grid.getNeighbors(current)) {
         if (closed.has(nb)) continue;
         const g = current.g + 1;
-        if (!open.includes(nb)) open.push(nb);
-        else if (g >= nb.g)     continue;
-        nb.parent = current;
-        nb.g = g;
-        nb.h = this.heuristic(nb, goal);
-        nb.f = nb.g + nb.h;
+        if (!seen.has(nb) || g < nb.g) {
+          nb.parent = current;
+          nb.g = g;
+          nb.h = this.heuristic(nb, goal);
+          nb.f = nb.g + nb.h;
+          seen.add(nb);
+          open.push({ cell: nb, key: nb.f, seq: seq++ });
+        }
       }
     }
     return null;
@@ -74,24 +151,34 @@ export class PathfindingSystem {
   // ── Dijkstra ──────────────────────────────────────────────────────────────
 
   private dijkstra(start: Cell, goal: Cell): Cell[] | null {
-    const open:   Cell[]    = [start];
-    const closed: Set<Cell> = new Set();
-    start.g = 0;
+    const open   = new BinaryHeap();
+    const closed = new Set<Cell>();
+    const seen   = new Set<Cell>();
+    let   seq    = 0;
 
-    while (open.length > 0) {
-      const current = this.extractMin(open, 'g');
+    start.g = 0;
+    start.f = 0;
+    open.push({ cell: start, key: start.g, seq: seq++ });
+    seen.add(start);
+
+    while (open.size > 0) {
+      const current = open.pop()!.cell;
+      if (closed.has(current)) continue;
       if (current === goal) return this.buildPath(current);
 
       closed.add(current);
+      this.nodesVisited++;
 
       for (const nb of this.grid.getNeighbors(current)) {
         if (closed.has(nb)) continue;
         const g = current.g + 1;
-        if (!open.includes(nb)) open.push(nb);
-        else if (g >= nb.g)     continue;
-        nb.parent = current;
-        nb.g = g;
-        nb.f = g;
+        if (!seen.has(nb) || g < nb.g) {
+          nb.parent = current;
+          nb.g = g;
+          nb.f = g;
+          seen.add(nb);
+          open.push({ cell: nb, key: nb.g, seq: seq++ });
+        }
       }
     }
     return null;
@@ -100,12 +187,19 @@ export class PathfindingSystem {
   // ── BFS ───────────────────────────────────────────────────────────────────
 
   private bfs(start: Cell, goal: Cell): Cell[] | null {
+    // Fila FIFO implementada com índice de head para evitar o custo O(n)
+    // do Array.prototype.shift() em JavaScript. Com shift(), o BFS
+    // degrada para O(V^2) por re-alocar todo o array a cada dequeue;
+    // com índice de head, mantém-se a complexidade canônica O(V + E).
     const queue:   Cell[]    = [start];
+    let   head               = 0;
     const visited: Set<Cell> = new Set([start]);
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    while (head < queue.length) {
+      const current = queue[head++];
       if (current === goal) return this.buildPath(current);
+
+      this.nodesVisited++;
 
       for (const nb of this.grid.getNeighbors(current)) {
         if (!visited.has(nb)) {
@@ -137,8 +231,14 @@ export class PathfindingSystem {
       }
 
       if (depth < MAX_DEPTH) {
-        // Randomização leve para evitar sempre o mesmo caminho em DFS
-        const neighbors = this.grid.getNeighbors(current).sort(() => Math.random() - 0.5);
+        this.nodesVisited++;
+        // Vizinhos ordenados do mais distante ao mais próximo (Manhattan).
+        // Stack é LIFO → o mais próximo fica no topo e é expandido primeiro.
+        // Isso é DFS guiado por heurística (Greedy DFS): mantém a estrutura
+        // de pilha e a incompletude do DFS puro, mas direciona a busca para
+        // evitar caminhos que se afastam indefinidamente do objetivo.
+        const neighbors = this.grid.getNeighbors(current)
+          .sort((a, b) => this.heuristic(b, goal) - this.heuristic(a, goal));
         for (const nb of neighbors) {
           if (!visited.has(nb)) {
             visited.add(nb);
@@ -153,8 +253,14 @@ export class PathfindingSystem {
 
   // ── JPS (Jump Point Search) ───────────────────────────────────────────────
   // Implementação para grade 4-direcional (cardeal) com movimentos uniformes.
-  // Referência: Harabor & Grastien, "Online Graph Pruning for Pathfinding on
-  // Grid Maps", AAAI 2011 (doi:10.5555/2900728.2900921).
+  // Inspirada em Harabor & Grastien, "Online Graph Pruning for Pathfinding on
+  // Grid Maps", AAAI 2011 (doi:10.5555/2900728.2900921), cuja formulação
+  // original pressupõe movimento em 8 direções (com diagonais). Esta é uma
+  // ADAPTAÇÃO 4-conexa: como não há saltos diagonais, a detecção de pontos de
+  // curva exige uma sondagem perpendicular linear (jpsProbe) a cada célula da
+  // varredura. As regras de poda e a otimalidade foram, portanto, validadas
+  // empiricamente para esta variante (ver verify_invariants.mjs), não herdadas
+  // diretamente da prova de Harabor & Grastien.
   //
   // Ideia central: em vez de expandir cada célula individualmente como no A*
   // clássico, o JPS "salta" ao longo de linhas retas até encontrar um
@@ -163,15 +269,20 @@ export class PathfindingSystem {
   // Isso reduz drasticamente o número de nós adicionados à lista aberta.
 
   private jps(start: Cell, goal: Cell): Cell[] | null {
-    const open:   Cell[]     = [start];
-    const closed: Set<Cell>  = new Set();
+    const open   = new BinaryHeap();
+    const closed = new Set<Cell>();
+    const seen   = new Set<Cell>();
+    let   seq    = 0;
 
     start.g = 0;
     start.h = this.heuristic(start, goal);
-    start.f = start.h;
+    start.f = start.g + start.h;
+    open.push({ cell: start, key: start.f, seq: seq++ });
+    seen.add(start);
 
-    while (open.length > 0) {
-      const current = this.extractMin(open, 'f');
+    while (open.size > 0) {
+      const current = open.pop()!.cell;
+      if (closed.has(current)) continue;
       if (current === goal) return this.buildJPSPath(current);
 
       closed.add(current);
@@ -184,16 +295,13 @@ export class PathfindingSystem {
         // Distância entre dois jump points em linha reta = distância Manhattan
         const g = current.g + this.heuristic(current, jp);
 
-        if (!open.includes(jp)) {
+        if (!seen.has(jp) || g < jp.g) {
           jp.parent = current;
           jp.g      = g;
           jp.h      = this.heuristic(jp, goal);
           jp.f      = jp.g + jp.h;
-          open.push(jp);
-        } else if (g < jp.g) {
-          jp.parent = current;
-          jp.g      = g;
-          jp.f      = jp.g + jp.h;
+          seen.add(jp);
+          open.push({ cell: jp, key: jp.f, seq: seq++ });
         }
       }
     }
@@ -244,7 +352,6 @@ export class PathfindingSystem {
     while (true) {
       if (!this.grid.isValid(cx, cy) || !this.grid.cells[cy][cx].walkable) return null;
 
-      this.nodesVisited++;
       const cell = this.grid.cells[cy][cx];
 
       if (cell === goal) return cell;
@@ -336,14 +443,6 @@ export class PathfindingSystem {
 
   private heuristic(a: Cell, b: Cell): number {
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); // Manhattan
-  }
-
-  /** Remove e retorna o nó com menor valor de `field` */
-  private extractMin(set: Cell[], field: 'f' | 'g'): Cell {
-    let idx = 0;
-    for (let i = 1; i < set.length; i++)
-      if (set[i][field] < set[idx][field]) idx = i;
-    return set.splice(idx, 1)[0];
   }
 
   private buildPath(goal: Cell): Cell[] {

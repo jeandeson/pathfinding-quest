@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Pathfinding Benchmark (headless)</title>
+</head>
+<body>
+  <!--
+    Entrada isolada de benchmark: roda APENAS o BenchmarkRunner, sem o loop de
+    jogo/render, para que a cronometragem não dispute CPU com a renderização.
+    Servida pelo Vite em dev; dirigida via CDP por scripts/run-benchmark-chrome.mjs.
+  -->
+  <pre id="log">iniciando…</pre>
+  <script type="module">
+    window.__BENCH_DONE__ = false;
+    window.__BENCH_CSV__ = '';
+    window.__BENCH_ERR__ = '';
+    window.__BENCH_PROGRESS__ = '';
+    const log = (s) => { document.getElementById('log').textContent = s; };
+    try {
+      const m = await import('/src/benchmarks/BenchmarkRunner.ts');
+      const runner = new m.BenchmarkRunner();
+      await runner.run((p) => {
+        window.__BENCH_PROGRESS__ = `[${p.completed}/${p.total}] ${p.current}`;
+        log(window.__BENCH_PROGRESS__);
+      });
+      window.__BENCH_CSV__ = runner.toCSV();
+      window.__BENCH_DONE__ = true;
+      log('concluído');
+    } catch (e) {
+      window.__BENCH_ERR__ = String((e && e.stack) || e);
+      window.__BENCH_DONE__ = true;
+      log('ERRO: ' + window.__BENCH_ERR__);
+    }
+  </script>
+</body>
+</html>

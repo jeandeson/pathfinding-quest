@@ -1,8 +1,21 @@
-// src/benchmark/BenchmarkRunner.ts
+// src/benchmarks/BenchmarkRunner.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Executa os testes de pathfinding de forma ASSÍNCRONA (yield entre batches)
+// Executa os testes de pathfinding de forma ASSÍNCRONA (yield entre suítes)
 // para não travar a UI durante a execução. Cada teste roda sobre uma Grid
 // isolada — não interfere com o estado do jogo.
+//
+// Metodologia de medição de tempo:
+//   • CONTAGEM e CRONOMETRAGEM são passagens SEPARADAS. As métricas estruturais
+//     (pathLength, nodesVisited) são coletadas numa passagem não cronometrada,
+//     lendo PathfindingSystem.nodesVisited — que agora é instrumentado dentro do
+//     próprio algoritmo, igual para TODOS (sem reescrever getNeighbors). Isso
+//     elimina o viés da instrumentação no tempo medido.
+//   • A cronometragem usa MEDIÇÃO EM LOTE com calibração automática: cada
+//     "unidade de trabalho" (npcCount buscas) é repetida K vezes por leitura de
+//     relógio, com K calibrado para que a janela cronometrada exceda
+//     MIN_WINDOW_MS. Isso supera o piso de resolução de performance.now() no
+//     Chrome (limitado a ~100 µs por mitigação de Spectre), tornando os tempos
+//     de buscas sub-milissegundo mensuráveis em vez de ruído de quantização.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Grid }                                    from '../world/Grid';
@@ -18,6 +31,7 @@ export interface BenchmarkResult {
   pathLength:      number;
   nodesVisited:    number;
   timeMs:          number;
+  timeMsStd:       number;
   success:         boolean;
 }
 
@@ -37,62 +51,109 @@ const ALL_ALGORITHMS = [
   PathfindingAlgorithm.JPS,
 ];
 
+// ── Parâmetros de cronometragem ──────────────────────────────────────────────
+/** Janela mínima (ms) de cada leitura de relógio — supera o clamp de ~100 µs. */
+const MIN_WINDOW_MS = 25;
+/** Número de janelas medidas por cenário (base para média e desvio-padrão). */
+const ITERATIONS = 10;
+/** Repetições de aquecimento (JIT) descartadas antes de medir. */
+const WARMUP = 3;
+/** Teto de segurança para o fator de repetição em lote. */
+const MAX_BATCH = 1 << 22;
+
+/** Calcula média e desvio-padrão de um array de números. */
+function stats(values: number[]): { mean: number; std: number } {
+  const n    = values.length;
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const std  = Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / n);
+  return { mean, std };
+}
+
+const round3 = (v: number) => parseFloat(v.toFixed(3));
+
 /** Cede um frame ao browser antes de continuar — mantém a UI viva */
 function yieldFrame(): Promise<void> {
   return new Promise(r => requestAnimationFrame(() => r()));
-}
-
-/**
- * Executa findPath e contabiliza os nós visitados.
- *
- * Para A*, Dijkstra, BFS e DFS: instrumenta getNeighbors (chamado uma vez
- * por nó expandido) para manter compatibilidade com os dados históricos.
- *
- * Para JPS: lê pathfinder.nodesVisited, que é incrementado internamente
- * durante os saltos — o JPS não chama getNeighbors da mesma forma, pois
- * percorre linhas retas sem expandir cada nó individualmente.
- */
-function runWithCount(
-  grid:       Grid,
-  pathfinder: PathfindingSystem,
-  alg:        PathfindingAlgorithm,
-  startY: number, startX: number,
-  goalY:  number, goalX:  number,
-): { path: ReturnType<PathfindingSystem['findPath']>; nodesVisited: number } {
-  if (alg === PathfindingAlgorithm.JPS) {
-    const t0   = performance.now(); // timing externo não é usado aqui — só o path importa
-    const path = pathfinder.findPath(
-      grid.cells[startY][startX],
-      grid.cells[goalY][goalX],
-      alg,
-    );
-    void t0;
-    return { path, nodesVisited: pathfinder.nodesVisited };
-  }
-
-  // Algoritmos clássicos: instrumenta getNeighbors
-  let nodesVisited = 0;
-  const original   = grid.getNeighbors.bind(grid);
-
-  grid.getNeighbors = (cell) => {
-    nodesVisited++;
-    return original(cell);
-  };
-
-  const path = pathfinder.findPath(
-    grid.cells[startY][startX],
-    grid.cells[goalY][goalX],
-    alg,
-  );
-
-  grid.getNeighbors = original;
-  return { path, nodesVisited };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class BenchmarkRunner {
   private results: BenchmarkResult[] = [];
+
+  // ── Núcleo de medição ───────────────────────────────────────────────────────
+
+  /**
+   * Executa UMA busca e devolve caminho + nós expandidos (lidos do contador
+   * interno do PathfindingSystem). Sem reescrita de getNeighbors → sem viés.
+   */
+  private runOnce(
+    pf: PathfindingSystem, grid: Grid, alg: PathfindingAlgorithm,
+    sy: number, sx: number, gy: number, gx: number,
+  ): { path: ReturnType<PathfindingSystem['findPath']>; nodesVisited: number } {
+    const path = pf.findPath(grid.cells[sy][sx], grid.cells[gy][gx], alg);
+    return { path, nodesVisited: pf.nodesVisited };
+  }
+
+  /**
+   * Cronometra uma unidade de trabalho com calibração de lote.
+   * Retorna o tempo POR UNIDADE (média e desvio sobre ITERATIONS janelas).
+   */
+  private measure(work: () => void): { mean: number; std: number } {
+    for (let i = 0; i < WARMUP; i++) work();
+
+    // Calibra K para que K unidades de trabalho excedam MIN_WINDOW_MS.
+    let K = 1;
+    for (;;) {
+      const t0 = performance.now();
+      for (let i = 0; i < K; i++) work();
+      const e = performance.now() - t0;
+      if (e >= MIN_WINDOW_MS || K >= MAX_BATCH) break;
+      const target = e > 0 ? Math.ceil(K * (MIN_WINDOW_MS / e) * 1.3) : K * 8;
+      K = Math.min(MAX_BATCH, Math.max(K * 2, target));
+    }
+
+    const perUnit: number[] = [];
+    for (let it = 0; it < ITERATIONS; it++) {
+      const t0 = performance.now();
+      for (let k = 0; k < K; k++) work();
+      perUnit.push((performance.now() - t0) / K);
+    }
+    return stats(perUnit);
+  }
+
+  /**
+   * Mede um cenário completo: estrutura (passagem não cronometrada) + tempo
+   * (passagem cronometrada em lote). Unidade de trabalho = npcCount buscas
+   * idênticas (mesma origem/destino), reproduzindo a semântica histórica em que
+   * o tempo reportado para N NPCs é o TOTAL das N buscas.
+   */
+  private benchScenario(
+    pf: PathfindingSystem, grid: Grid, alg: PathfindingAlgorithm,
+    sy: number, sx: number, gy: number, gx: number, npcCount: number,
+  ): { pathLength: number; nodesVisited: number; timeMs: number; timeMsStd: number; success: boolean } {
+    // 1) Estrutura (não cronometrada)
+    let nodesTotal = 0, pathLen = 0, success = false;
+    for (let n = 0; n < npcCount; n++) {
+      const { path, nodesVisited } = this.runOnce(pf, grid, alg, sy, sx, gy, gx);
+      nodesTotal += nodesVisited;
+      if (path) { pathLen = path.length; success = true; }
+    }
+
+    // 2) Tempo (cronometrada, em lote) — unidade = npcCount buscas
+    const work = () => {
+      for (let n = 0; n < npcCount; n++) pf.findPath(grid.cells[sy][sx], grid.cells[gy][gx], alg);
+    };
+    const { mean, std } = this.measure(work);
+
+    return {
+      pathLength: pathLen,
+      nodesVisited: nodesTotal,
+      timeMs: round3(mean),
+      timeMsStd: round3(std),
+      success,
+    };
+  }
 
   // ── Suítes de teste ────────────────────────────────────────────────────────
 
@@ -104,25 +165,16 @@ export class BenchmarkRunner {
 
     for (const { rows, cols } of sizes) {
       for (const density of densities) {
-        const grid       = new Grid(rows, cols, 10);
+        const grid = new Grid(rows, cols, 10);
         grid.generateObstacles(density, 1001 + rows + Math.round(density * 100));
-        const pathfinder = new PathfindingSystem(grid);
+        const pf = new PathfindingSystem(grid);
 
         for (const alg of ALL_ALGORITHMS) {
-          const t0 = performance.now();
-          const { path, nodesVisited } = runWithCount(
-            grid, pathfinder, alg, 0, 0, rows - 1, cols - 1,
-          );
+          const m = this.benchScenario(pf, grid, alg, 0, 0, rows - 1, cols - 1, 1);
           out.push({
-            testName:        'Densidades de Obstáculos',
-            algorithm:       alg,
-            gridSize:        `${rows}x${cols}`,
-            obstacleDensity: density,
-            npcCount:        1,
-            pathLength:      path?.length ?? 0,
-            nodesVisited,
-            timeMs:          parseFloat((performance.now() - t0).toFixed(3)),
-            success:         !!path,
+            testName: 'Densidades de Obstáculos', algorithm: alg,
+            gridSize: `${rows}x${cols}`, obstacleDensity: density, npcCount: 1,
+            ...m,
           });
         }
       }
@@ -133,36 +185,18 @@ export class BenchmarkRunner {
   /** 4.1.2 — Escalabilidade: aumenta número de NPCs simultâneos (Grid 20×20) */
   private suiteScalability(): BenchmarkResult[] {
     const out: BenchmarkResult[] = [];
-    const grid       = new Grid(20, 20, 10);
+    const grid = new Grid(20, 20, 10);
     grid.generateObstacles(0.2, 2001);
-    const pathfinder = new PathfindingSystem(grid);
-    const npcCounts  = [1, 5, 10, 20, 50];
+    const pf = new PathfindingSystem(grid);
+    const npcCounts = [1, 5, 10, 20, 50];
 
     for (const alg of ALL_ALGORITHMS) {
       for (const npcCount of npcCounts) {
-        const t0       = performance.now();
-        let nodesTotal = 0;
-        let pathLen    = 0;
-        let success    = false;
-
-        for (let n = 0; n < npcCount; n++) {
-          const { path, nodesVisited } = runWithCount(
-            grid, pathfinder, alg, 0, 0, 19, 19,
-          );
-          nodesTotal += nodesVisited;
-          if (path) { pathLen = path.length; success = true; }
-        }
-
+        const m = this.benchScenario(pf, grid, alg, 0, 0, 19, 19, npcCount);
         out.push({
-          testName:        'Escalabilidade (NPCs)',
-          algorithm:       alg,
-          gridSize:        '20x20',
-          obstacleDensity: 0.2,
-          npcCount,
-          pathLength:      pathLen,
-          nodesVisited:    nodesTotal,
-          timeMs:          parseFloat((performance.now() - t0).toFixed(3)),
-          success,
+          testName: 'Escalabilidade (NPCs)', algorithm: alg,
+          gridSize: '20x20', obstacleDensity: 0.2, npcCount,
+          ...m,
         });
       }
     }
@@ -188,24 +222,30 @@ export class BenchmarkRunner {
       grid.cells[0][mid].walkable             = true;
       grid.cells[grid.rows - 1][mid].walkable = true;
 
-      const pathfinder = new PathfindingSystem(grid);
+      const pf = new PathfindingSystem(grid);
 
       for (const alg of ALL_ALGORITHMS) {
-        const t0 = performance.now();
-        const { path, nodesVisited } = runWithCount(
-          grid, pathfinder, alg, 0, mid, grid.rows - 1, mid,
-        );
+        const m = this.benchScenario(pf, grid, alg, 0, mid, grid.rows - 1, mid, 1);
         out.push({
-          testName:        'Congestionamento',
-          algorithm:       alg,
-          gridSize:        '30x30',
-          obstacleDensity: choke,
-          npcCount:        1,
-          pathLength:      path?.length ?? 0,
-          nodesVisited,
-          timeMs:          parseFloat((performance.now() - t0).toFixed(3)),
-          success:         !!path,
+          testName: 'Congestionamento', algorithm: alg,
+          gridSize: '30x30', obstacleDensity: choke, npcCount: 1,
+          ...m,
         });
+      }
+
+      // Testes multi-NPC apenas para choke=0.2 (única densidade com caminho válido)
+      if (choke === 0.2) {
+        const npcCounts = [5, 10, 20, 50];
+        for (const alg of ALL_ALGORITHMS) {
+          for (const npcCount of npcCounts) {
+            const m = this.benchScenario(pf, grid, alg, 0, mid, grid.rows - 1, mid, npcCount);
+            out.push({
+              testName: 'Congestionamento', algorithm: alg,
+              gridSize: '30x30', obstacleDensity: choke, npcCount,
+              ...m,
+            });
+          }
+        }
       }
     }
     return out;
@@ -216,7 +256,7 @@ export class BenchmarkRunner {
     const out: BenchmarkResult[] = [];
     const grid = new Grid(40, 40, 10);
     grid.generateObstacles(0.25, 4001);
-    const pathfinder = new PathfindingSystem(grid);
+    const pf = new PathfindingSystem(grid);
 
     const goals = [
       { y: 39, x: 39, label: 'Objetivo Dinâmico — Etapa 1' },
@@ -228,20 +268,11 @@ export class BenchmarkRunner {
     for (const alg of algs) {
       for (const goal of goals) {
         grid.cells[goal.y][goal.x].walkable = true;
-        const t0 = performance.now();
-        const { path, nodesVisited } = runWithCount(
-          grid, pathfinder, alg, 0, 0, goal.y, goal.x,
-        );
+        const m = this.benchScenario(pf, grid, alg, 0, 0, goal.y, goal.x, 1);
         out.push({
-          testName:        goal.label,
-          algorithm:       alg,
-          gridSize:        '40x40',
-          obstacleDensity: 0.25,
-          npcCount:        1,
-          pathLength:      path?.length ?? 0,
-          nodesVisited,
-          timeMs:          parseFloat((performance.now() - t0).toFixed(3)),
-          success:         !!path,
+          testName: goal.label, algorithm: alg,
+          gridSize: '40x40', obstacleDensity: 0.25, npcCount: 1,
+          ...m,
         });
       }
     }
@@ -276,11 +307,12 @@ export class BenchmarkRunner {
   }
 
   private estimateTotal(): number {
-    // density: 2 sizes × 4 densities × 5 algs = 40
-    // scalability: 5 algs × 5 npcCounts       = 25
-    // congestion: 5 algs × 3 chokeLevels       = 15
-    // dynamicGoals: 3 algs × 3 goals           =  9
-    return 40 + 25 + 15 + 9; // = 89
+    // density: 2 sizes × 4 densities × 5 algs          = 40
+    // scalability: 5 algs × 5 npcCounts                = 25
+    // congestion: 5 algs × 3 chokeLevels                = 15
+    // congestion multi-NPC: 5 algs × 4 npcCounts        = 20
+    // dynamicGoals: 3 algs × 3 goals                    =  9
+    return 40 + 25 + 15 + 20 + 9; // = 109
   }
 
   // ── Exportação ─────────────────────────────────────────────────────────────

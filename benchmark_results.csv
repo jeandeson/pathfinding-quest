@@ -1,0 +1,110 @@
+testName,algorithm,gridSize,obstacleDensity,npcCount,pathLength,nodesVisited,timeMs,timeMsStd,success
+Densidades de Obstáculos,A*,20x20,0.1,1,39,316,0.042,0.003,true
+Densidades de Obstáculos,Dijkstra,20x20,0.1,1,39,328,0.038,0.002,true
+Densidades de Obstáculos,BFS,20x20,0.1,1,39,328,0.022,0,true
+Densidades de Obstáculos,DFS,20x20,0.1,1,45,45,0.01,0,true
+Densidades de Obstáculos,JPS,20x20,0.1,1,39,191,0.065,0.002,true
+Densidades de Obstáculos,A*,20x20,0.2,1,39,103,0.012,0,true
+Densidades de Obstáculos,Dijkstra,20x20,0.2,1,39,284,0.033,0.005,true
+Densidades de Obstáculos,BFS,20x20,0.2,1,39,284,0.02,0.001,true
+Densidades de Obstáculos,DFS,20x20,0.2,1,45,50,0.01,0,true
+Densidades de Obstáculos,JPS,20x20,0.2,1,39,66,0.016,0.001,true
+Densidades de Obstáculos,A*,20x20,0.3,1,45,116,0.013,0,true
+Densidades de Obstáculos,Dijkstra,20x20,0.3,1,45,181,0.019,0.001,true
+Densidades de Obstáculos,BFS,20x20,0.3,1,45,181,0.011,0,true
+Densidades de Obstáculos,DFS,20x20,0.3,1,45,50,0.01,0,true
+Densidades de Obstáculos,JPS,20x20,0.3,1,45,68,0.014,0,true
+Densidades de Obstáculos,A*,20x20,0.4,1,39,399,0.049,0.001,true
+Densidades de Obstáculos,Dijkstra,20x20,0.4,1,39,399,0.047,0.002,true
+Densidades de Obstáculos,BFS,20x20,0.4,1,39,399,0.028,0,true
+Densidades de Obstáculos,DFS,20x20,0.4,1,39,38,0.009,0,true
+Densidades de Obstáculos,JPS,20x20,0.4,1,39,3,0.015,0,true
+Densidades de Obstáculos,A*,40x40,0.1,1,79,1154,0.195,0.002,true
+Densidades de Obstáculos,Dijkstra,40x40,0.1,1,79,1299,0.205,0.003,true
+Densidades de Obstáculos,BFS,40x40,0.1,1,79,1299,0.098,0.002,true
+Densidades de Obstáculos,DFS,40x40,0.1,1,89,89,0.023,0.002,true
+Densidades de Obstáculos,JPS,40x40,0.1,1,79,696,0.331,0.006,true
+Densidades de Obstáculos,A*,40x40,0.2,1,79,487,0.068,0.001,true
+Densidades de Obstáculos,Dijkstra,40x40,0.2,1,79,1140,0.184,0.002,true
+Densidades de Obstáculos,BFS,40x40,0.2,1,79,1140,0.09,0.003,true
+Densidades de Obstáculos,DFS,40x40,0.2,1,87,165,0.033,0.003,true
+Densidades de Obstáculos,JPS,40x40,0.2,1,79,330,0.099,0.002,true
+Densidades de Obstáculos,A*,40x40,0.3,1,83,572,0.086,0.003,true
+Densidades de Obstáculos,Dijkstra,40x40,0.3,1,83,952,0.141,0.003,true
+Densidades de Obstáculos,BFS,40x40,0.3,1,83,952,0.072,0.001,true
+Densidades de Obstáculos,DFS,40x40,0.3,1,95,274,0.052,0.002,true
+Densidades de Obstáculos,JPS,40x40,0.3,1,83,369,0.101,0.004,true
+Densidades de Obstáculos,A*,40x40,0.4,1,79,1599,0.243,0.004,true
+Densidades de Obstáculos,Dijkstra,40x40,0.4,1,79,1599,0.25,0.006,true
+Densidades de Obstáculos,BFS,40x40,0.4,1,79,1599,0.124,0.008,true
+Densidades de Obstáculos,DFS,40x40,0.4,1,79,78,0.02,0,true
+Densidades de Obstáculos,JPS,40x40,0.4,1,79,3,0.06,0.001,true
+Escalabilidade (NPCs),A*,20x20,0.2,1,39,142,0.019,0.001,true
+Escalabilidade (NPCs),A*,20x20,0.2,5,39,710,0.093,0.002,true
+Escalabilidade (NPCs),A*,20x20,0.2,10,39,1420,0.185,0.005,true
+Escalabilidade (NPCs),A*,20x20,0.2,20,39,2840,0.371,0.01,true
+Escalabilidade (NPCs),A*,20x20,0.2,50,39,7100,0.945,0.042,true
+Escalabilidade (NPCs),Dijkstra,20x20,0.2,1,39,294,0.034,0.003,true
+Escalabilidade (NPCs),Dijkstra,20x20,0.2,5,39,1470,0.163,0.003,true
+Escalabilidade (NPCs),Dijkstra,20x20,0.2,10,39,2940,0.319,0.005,true
+Escalabilidade (NPCs),Dijkstra,20x20,0.2,20,39,5880,0.65,0.018,true
+Escalabilidade (NPCs),Dijkstra,20x20,0.2,50,39,14700,1.622,0.059,true
+Escalabilidade (NPCs),BFS,20x20,0.2,1,39,294,0.019,0,true
+Escalabilidade (NPCs),BFS,20x20,0.2,5,39,1470,0.099,0.002,true
+Escalabilidade (NPCs),BFS,20x20,0.2,10,39,2940,0.197,0.012,true
+Escalabilidade (NPCs),BFS,20x20,0.2,20,39,5880,0.387,0.007,true
+Escalabilidade (NPCs),BFS,20x20,0.2,50,39,14700,0.962,0.022,true
+Escalabilidade (NPCs),DFS,20x20,0.2,1,45,47,0.01,0,true
+Escalabilidade (NPCs),DFS,20x20,0.2,5,45,235,0.051,0.001,true
+Escalabilidade (NPCs),DFS,20x20,0.2,10,45,470,0.103,0.001,true
+Escalabilidade (NPCs),DFS,20x20,0.2,20,45,940,0.206,0.002,true
+Escalabilidade (NPCs),DFS,20x20,0.2,50,45,2350,0.513,0.006,true
+Escalabilidade (NPCs),JPS,20x20,0.2,1,39,70,0.021,0,true
+Escalabilidade (NPCs),JPS,20x20,0.2,5,39,350,0.107,0.001,true
+Escalabilidade (NPCs),JPS,20x20,0.2,10,39,700,0.213,0.001,true
+Escalabilidade (NPCs),JPS,20x20,0.2,20,39,1400,0.428,0.004,true
+Escalabilidade (NPCs),JPS,20x20,0.2,50,39,3500,1.064,0.009,true
+Congestionamento,A*,30x30,0.2,1,46,200,0.024,0,true
+Congestionamento,Dijkstra,30x30,0.2,1,46,375,0.042,0,true
+Congestionamento,BFS,30x30,0.2,1,46,375,0.025,0,true
+Congestionamento,DFS,30x30,0.2,1,46,75,0.014,0,true
+Congestionamento,JPS,30x30,0.2,1,46,127,0.034,0,true
+Congestionamento,A*,30x30,0.2,5,46,1000,0.122,0.004,true
+Congestionamento,A*,30x30,0.2,10,46,2000,0.244,0.003,true
+Congestionamento,A*,30x30,0.2,20,46,4000,0.478,0.005,true
+Congestionamento,A*,30x30,0.2,50,46,10000,1.281,0.062,true
+Congestionamento,Dijkstra,30x30,0.2,5,46,1875,0.206,0.006,true
+Congestionamento,Dijkstra,30x30,0.2,10,46,3750,0.422,0.027,true
+Congestionamento,Dijkstra,30x30,0.2,20,46,7500,0.815,0.015,true
+Congestionamento,Dijkstra,30x30,0.2,50,46,18750,2.053,0.059,true
+Congestionamento,BFS,30x30,0.2,5,46,1875,0.125,0.003,true
+Congestionamento,BFS,30x30,0.2,10,46,3750,0.251,0.006,true
+Congestionamento,BFS,30x30,0.2,20,46,7500,0.502,0.007,true
+Congestionamento,BFS,30x30,0.2,50,46,18750,1.25,0.016,true
+Congestionamento,DFS,30x30,0.2,5,46,375,0.072,0.001,true
+Congestionamento,DFS,30x30,0.2,10,46,750,0.143,0.002,true
+Congestionamento,DFS,30x30,0.2,20,46,1500,0.285,0.003,true
+Congestionamento,DFS,30x30,0.2,50,46,3750,0.707,0.007,true
+Congestionamento,JPS,30x30,0.2,5,46,635,0.169,0.004,true
+Congestionamento,JPS,30x30,0.2,10,46,1270,0.338,0.005,true
+Congestionamento,JPS,30x30,0.2,20,46,2540,0.678,0.009,true
+Congestionamento,JPS,30x30,0.2,50,46,6350,1.705,0.043,true
+Congestionamento,A*,30x30,0.4,1,0,56,0.007,0,false
+Congestionamento,Dijkstra,30x30,0.4,1,0,56,0.006,0.001,false
+Congestionamento,BFS,30x30,0.4,1,0,56,0.004,0,false
+Congestionamento,DFS,30x30,0.4,1,0,56,0.009,0,false
+Congestionamento,JPS,30x30,0.4,1,0,26,0.006,0,false
+Congestionamento,A*,30x30,0.6,1,0,51,0.006,0,false
+Congestionamento,Dijkstra,30x30,0.6,1,0,51,0.006,0,false
+Congestionamento,BFS,30x30,0.6,1,0,51,0.004,0,false
+Congestionamento,DFS,30x30,0.6,1,0,51,0.008,0,false
+Congestionamento,JPS,30x30,0.6,1,0,22,0.005,0,false
+Objetivo Dinâmico — Etapa 1,A*,40x40,0.25,1,81,408,0.054,0.001,true
+Objetivo Dinâmico — Etapa 2,A*,40x40,0.25,1,0,1051,0.183,0.001,false
+Objetivo Dinâmico — Etapa 3,A*,40x40,0.25,1,59,335,0.043,0.001,true
+Objetivo Dinâmico — Etapa 1,Dijkstra,40x40,0.25,1,81,1050,0.167,0.002,true
+Objetivo Dinâmico — Etapa 2,Dijkstra,40x40,0.25,1,0,1051,0.165,0.002,false
+Objetivo Dinâmico — Etapa 3,Dijkstra,40x40,0.25,1,59,774,0.11,0.001,true
+Objetivo Dinâmico — Etapa 1,JPS,40x40,0.25,1,81,266,0.069,0.001,true
+Objetivo Dinâmico — Etapa 2,JPS,40x40,0.25,1,0,708,0.226,0.001,false
+Objetivo Dinâmico — Etapa 3,JPS,40x40,0.25,1,59,216,0.045,0.001,true

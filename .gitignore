@@ -28,3 +28,10 @@ tcc.md
 tcc_coments.md
 .claude
 refs.bib
+comentarios.md
+respostas_devolutiva*.md
+TCC Pathfinding - Jeandeson Souza Nascimento.pdf
+# Exports numerados/duplicados do navegador são ignorados; o CSV canônico não.
+benchmark_results*.csv
+!benchmark_results.csv
+template_unijorge_v1.pptx

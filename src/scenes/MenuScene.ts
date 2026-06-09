@@ -86,7 +86,7 @@ export class MenuScene implements IScene {
     }
 
     // Panel
-    const pw = 520, ph = 580, px = W / 2 - pw / 2, py = 30;
+    const pw = 520, ph = 630, px = W / 2 - pw / 2, py = 30;
     ctx.save();
     ctx.globalAlpha = 0.9;
     ctx.fillStyle   = '#0d0d22';
@@ -156,7 +156,7 @@ export class MenuScene implements IScene {
   private buildButtons(): void {
     const cx = this.canvas.width / 2;
     const algCols = [cx - 115, cx + 115];
-    const algRows = [420, 470];
+    const algRows = [420, 470, 520];
 
     this.buttons = [
       new Button({ label: '▶  INICIAR JOGO', cx, cy: 235, w: 290, h: 52, primary: true },
@@ -165,10 +165,13 @@ export class MenuScene implements IScene {
       new Button({ label: '📊  EXECUTAR BENCHMARK', cx, cy: 300, w: 290, h: 40 },
         () => this.bus.emit('scene:benchmark', {})),
 
-      ...ALL_ALGORITHMS.map((alg, i) =>
-        new Button({
+      ...ALL_ALGORITHMS.map((alg, i) => {
+        // Se for o último item em linha ímpar (índice 4 com 5 algoritmos), centraliza
+        const total = ALL_ALGORITHMS.length;
+        const isOrphan = total % 2 !== 0 && i === total - 1;
+        return new Button({
           label: alg,
-          cx: algCols[i % 2],
+          cx: isOrphan ? cx : algCols[i % 2],
           cy: algRows[Math.floor(i / 2)],
           w: 210, h: 42,
         },
@@ -176,8 +179,8 @@ export class MenuScene implements IScene {
             this.selectedAlg = alg;
             // Atualiza estado `selected` apenas nos botões de algoritmo (índice ≥ 2)
             this.buttons.slice(2).forEach(b => { b.selected = b.label === alg; });
-          })
-      ),
+          });
+      }),
     ];
 
     // Marca seleção padrão

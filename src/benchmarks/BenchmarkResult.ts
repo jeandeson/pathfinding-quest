@@ -16,7 +16,8 @@ export interface BenchmarkResult {
   npcCount:        number;
   pathLength:      number;          // 0 = sem caminho
   nodesVisited:    number;
-  timeMs:          number;
+  timeMs:          number;          // média de ITERATIONS execuções
+  timeMsStd:       number;          // desvio-padrão de timeMs
   success:         boolean;
 }
 
