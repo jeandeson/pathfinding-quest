@@ -5,7 +5,7 @@ import type { EventBus }   from '../core/EventBus';
 import type { InputManager } from '../core/InputManager';
 import { Button }          from '../ui/Button';
 import { roundedRect }     from '../rendering/drawUtils';
-import { PathfindingAlgorithm, ALL_ALGORITHMS } from '../pathfinding/types';
+import { PathfindingAlgorithm, ALL_ALGORITHMS, algorithmLabel } from '../pathfinding/types';
 import { SoundManager }    from '../core/SoundManager';
 
 interface Star { x: number; y: number; r: number; speed: number }
@@ -136,7 +136,7 @@ export class MenuScene implements IScene {
     ctx.textAlign = 'center';
     ctx.font = '13px monospace';
     ctx.fillStyle = 'rgba(200,185,255,0.95)';
-    ctx.fillText(`Selecionado: ${this.selectedAlg}`, W / 2, py + ph - 14);
+    ctx.fillText(`Selecionado: ${algorithmLabel(this.selectedAlg)}`, W / 2, py + ph - 14);
     ctx.fillStyle = 'rgba(175,170,215,0.85)';
     ctx.fillText('Clique no mapa para mover · Shift=Dash · Espaço=Pular · D=Debug', W / 2, H - 18);
     ctx.restore();
@@ -171,6 +171,7 @@ export class MenuScene implements IScene {
         const isOrphan = total % 2 !== 0 && i === total - 1;
         return new Button({
           label: alg,
+          text:  algorithmLabel(alg),
           cx: isOrphan ? cx : algCols[i % 2],
           cy: algRows[Math.floor(i / 2)],
           w: 210, h: 42,

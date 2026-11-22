@@ -234,8 +234,8 @@ export class PathfindingSystem {
         this.nodesVisited++;
         // Vizinhos ordenados do mais distante ao mais próximo (Manhattan).
         // Stack é LIFO → o mais próximo fica no topo e é expandido primeiro.
-        // Isso é DFS guiado por heurística (Greedy DFS): mantém a estrutura
-        // de pilha e a incompletude do DFS puro, mas direciona a busca para
+        // Isso é DFS guiado por heurística (DFS-Greedy, a variante adotada):
+        // mantém a estrutura de pilha do DFS canônico, mas direciona a busca para
         // evitar caminhos que se afastam indefinidamente do objetivo.
         const neighbors = this.grid.getNeighbors(current)
           .sort((a, b) => this.heuristic(b, goal) - this.heuristic(a, goal));

@@ -1,5 +1,5 @@
 // src/ui/HUD.ts
-import { PathfindingAlgorithm } from '../pathfinding/types';
+import { PathfindingAlgorithm, algorithmLabel } from '../pathfinding/types';
 
 /**
  * Manages the HTML overlay HUD (score, dash cooldown, controls hint).
@@ -43,9 +43,9 @@ export class HUD {
       &nbsp;|&nbsp;${dashLabel}
       &nbsp;|&nbsp;<span style="color:#aef">Espaço = Pular · D = Debug</span><br>
       <small>
-        Player: <b>${playerAlg}</b> (1–5)
+        Player: <b>${algorithmLabel(playerAlg)}</b> (1–5)
         &nbsp;|&nbsp;
-        Inimigos: <b>${enemyAlg}</b> (Q/W/E/R/T)
+        Inimigos: <b>${algorithmLabel(enemyAlg)}</b> (Q/W/E/R/T)
       </small>`;
   }
 }

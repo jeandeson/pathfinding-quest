@@ -4,6 +4,7 @@ import { InputManager }      from '../core/InputManager';
 import { BenchmarkRunner, BenchmarkProgress } from '../benchmarks/BenchmarkRunner';
 import { BenchmarkResult }   from '../benchmarks/BenchmarkResult';
 import { PathfindingAlgorithm } from '../pathfinding/PathfindingSystem';
+import { algorithmLabel }       from '../pathfinding/types';
 import {
   drawBarChart,
   drawLineChart,
@@ -246,7 +247,7 @@ export class BenchmarkScene implements IScene {
         this.drawDataTable(ctx, 20, tableY, W - 40,
           'Tabela 2 — Resultados Médios para Múltiplos NPCs (Grid 20×20, Densidade 0.2)',
           'Média entre todos os volumes testados: 1, 5, 10, 20 e 50 NPCs',
-          ['Algoritmo', 'Comprimento Médio', 'Nós Visitados', 'Tempo Médio (ms)'],
+          ['Algoritmo', 'Comprimento Médio', 'Nós Expandidos', 'Tempo Médio (ms)'],
           rows,
         );
         break;
@@ -272,7 +273,7 @@ export class BenchmarkScene implements IScene {
         this.drawDataTable(ctx, 20, contentY + 60, W - 40,
           'Tabela 3 — Resultados Médios para Congestionamento (Grid 30×30)',
           'Média entre os níveis de obstrução 0.2, 0.4 e 0.6 — corredor central forçado',
-          ['Algoritmo', 'Densidade', 'Comprimento Médio', 'Nós Visitados', 'Tempo Médio (ms)'],
+          ['Algoritmo', 'Densidade', 'Comprimento Médio', 'Nós Expandidos', 'Tempo Médio (ms)'],
           rows,
         );
         break;
@@ -300,7 +301,7 @@ export class BenchmarkScene implements IScene {
         this.drawDataTable(ctx, 20, contentY + 60, W - 40,
           'Tabela 4 — Resultados para Objetivos Dinâmicos (Grid 40×40, Densidade 0.25)',
           'Recálculo de caminho para destinos sequenciais — A* e Dijkstra',
-          ['Algoritmo', 'Etapa', 'Comprimento', 'Nós Visitados', 'Tempo (ms)'],
+          ['Algoritmo', 'Etapa', 'Comprimento', 'Nós Expandidos', 'Tempo (ms)'],
           rows,
         );
         break;
@@ -409,7 +410,8 @@ export class BenchmarkScene implements IScene {
           ctx.font      = '15px monospace';
         }
         ctx.textAlign = 'center';
-        ctx.fillText(cell, cx, cy);
+        // a célula guarda a chave ('DFS'); o texto exibido usa o nome padronizado
+        ctx.fillText(ci === 0 ? algorithmLabel(cell) : cell, cx, cy);
       });
     });
 

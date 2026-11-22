@@ -3,6 +3,8 @@ import { roundedRect } from '../rendering/drawUtils';
 
 export interface ButtonOptions {
   label: string;
+  /** Texto exibido; se omitido, usa `label` (que continua sendo o identificador). */
+  text?: string;
   cx: number; cy: number;
   w: number;  h: number;
   primary?: boolean;
@@ -14,6 +16,7 @@ export interface ButtonOptions {
  */
 export class Button {
   readonly label: string;
+  readonly text: string;
   readonly x: number;
   readonly y: number;
   readonly w: number;
@@ -26,6 +29,7 @@ export class Button {
 
   constructor(opts: ButtonOptions, onClick: () => void) {
     this.label   = opts.label;
+    this.text    = opts.text ?? opts.label;
     this.x       = opts.cx - opts.w / 2;
     this.y       = opts.cy - opts.h / 2;
     this.w       = opts.w;
@@ -82,7 +86,7 @@ export class Button {
     ctx.font         = this.primary ? 'bold 18px monospace' : '15px monospace';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(this.label, this.x + this.w / 2, this.y + this.h / 2);
+    ctx.fillText(this.text, this.x + this.w / 2, this.y + this.h / 2);
 
     ctx.restore();
   }

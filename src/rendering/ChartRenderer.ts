@@ -6,6 +6,7 @@
 
 import { BenchmarkResult }      from '../benchmarks/BenchmarkResult';
 import { PathfindingAlgorithm } from '../pathfinding/PathfindingSystem';
+import { algorithmLabel }       from '../pathfinding/types';
 
 // Paleta de cores por algoritmo — consistente em todos os gráficos
 export const ALGO_COLORS: Record<PathfindingAlgorithm, string> = {
@@ -215,7 +216,7 @@ export function drawBarChart(
     ctx.font         = 'bold 16px monospace';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(alg, bx + bw / 2, oy + ih + 10);
+    ctx.fillText(algorithmLabel(alg), bx + bw / 2, oy + ih + 10);
 
     // Valor numérico no topo da barra
     if (bh > 22) {
@@ -243,7 +244,7 @@ export function drawLegend(
     ctx.fillStyle = ALGO_COLORS[alg];
     ctx.fillRect(lx, y - 10, 18, 12);
     ctx.fillStyle = 'rgba(235,232,255,0.97)';
-    ctx.fillText(alg, lx + 22, y);
+    ctx.fillText(algorithmLabel(alg), lx + 22, y);
   });
   ctx.restore();
 }
@@ -300,7 +301,7 @@ function drawChartBase(
     ctx.shadowBlur  = 0;
     // Nome do algoritmo
     ctx.fillStyle = 'rgba(240,238,255,0.97)';
-    ctx.fillText(alg, lx + 26, legendBaseY);
+    ctx.fillText(algorithmLabel(alg), lx + 26, legendBaseY);
   });
 
   // Eixos
