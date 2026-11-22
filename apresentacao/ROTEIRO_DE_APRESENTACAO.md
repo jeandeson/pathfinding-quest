@@ -272,8 +272,8 @@ Para ir a um slide de apoio durante a apresentação: **digite o número e apert
 
 | Teste dos QR codes com o celular | Data | Resultado |
 |---|---|---|
-| Em um monitor, antes da defesa | | |
-| Na sala, com o projetor | | |
+| Em um monitor, antes da defesa | 22/11/2026 | Feito por mim, com a câmera do celular: os dois abriram (simulador e repositório) |
+| Na sala, com o projetor | | repetir ao chegar, do fundo da sala |
 
 <!-- qr:fim -->
 
