@@ -144,7 +144,7 @@ const html = `<!doctype html>
     <h2 id="eTitle"></h2>
     <p id="eSummary"></p>
     <div class="tablewrap"><table id="eTable"></table></div>
-    <div class="row"><button class="primary" id="again">Ensaiar de novo</button><button id="csv">Baixar este ensaio (CSV)</button></div>
+    <div class="row"><button class="primary" id="again">Ensaiar de novo</button><button id="csv">Salvar o CSV de novo</button></div>
   </div>
   <div class="panel" style="margin-top:16px" id="histBox2"></div>
 </section>
@@ -157,7 +157,7 @@ const $ = (id) => document.getElementById(id);
 const fmt = (s) => { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const now = () => performance.now() / 1000;
 
-let i = 0, spent = [], t0 = 0, running = false, timer = null;
+let i = 0, spent = [], t0 = 0, running = false, timer = null, startedAt = null;
 
 function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
 function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
@@ -187,7 +187,7 @@ function show() {
 }
 
 function start() {
-  i = 0; spent = SLIDES.map(() => 0); running = true; t0 = now();
+  i = 0; spent = SLIDES.map(() => 0); running = true; t0 = now(); startedAt = new Date();
   $('start').classList.add('hidden'); $('end').classList.add('hidden'); $('stage').classList.remove('hidden');
   $('pause').textContent = 'Pausar';
   clearInterval(timer); timer = setInterval(tick, 200);
@@ -211,7 +211,8 @@ function finish() {
   $('eSummary').textContent = (tot <= 15 * 60 ? 'Cabe em 15 minutos. ' : tot <= 20 * 60 ? 'Passa de 15 minutos, mas cabe em 20. ' : 'Passa de 20 minutos: precisa cortar. ')
     + (Math.abs(diff) < 5 ? 'No tempo planejado.' : diff > 0 ? fmt(diff) + ' acima do planejado.' : fmt(-diff) + ' abaixo do planejado.')
     + (over.length ? ' Acima da meta nos slides: ' + over.join(', ') + '.' : ' Nenhum slide passou da meta.')
-    + (kept ? '' : ' (O navegador não deixou guardar o histórico: baixe o CSV.)');
+    + (kept ? '' : ' (O navegador não deixou guardar o histórico.)')
+    + ' O resultado foi salvo na sua pasta de downloads como ' + csv() + '.';
   $('eTable').innerHTML = '<tr><th>Slide</th><th>Título</th><th class="num">Planejado</th><th class="num">Realizado</th><th class="num">Diferença</th><th></th></tr>'
     + SLIDES.map((s, k) => { const d = spent[k] - s.plan, st = stateOf(spent[k], s.plan);
         return '<tr class="' + (st === 'ok' ? '' : st) + '"><td>' + s.n + '</td><td>' + s.title + '</td><td class="num">' + fmt(s.plan) + '</td><td class="num">' + fmt(spent[k]) + '</td><td class="num">' + (d >= 0 ? '+' : '−') + fmt(Math.abs(d)) + '</td><td><span class="tag ' + st + '">' + (st === 'ok' ? 'dentro' : st === 'warn' ? 'acima' : 'bem acima') + '</span></td></tr>'; }).join('')
@@ -225,18 +226,23 @@ function history() {
   const html = '<h2>Ensaios guardados neste navegador</h2>' + (list.length
     ? '<div class="tablewrap"><table><tr><th>Ensaio</th><th>Data</th><th class="num">Tempo total</th><th>Slides acima da meta</th></tr>'
       + list.map((e, k) => '<tr><td>' + (k + 1) + '</td><td>' + new Date(e.when).toLocaleString('pt-BR') + '</td><td class="num">' + fmt(e.total) + '</td><td>' + (e.over.length ? e.over.join(', ') : 'nenhum') + '</td></tr>').join('')
-      + '</table></div><p class="keys">Copie estes totais para a tabela de ensaios do roteiro. A devolutiva pede o ensaio cronometrado; o combinado são três.</p><div class="row"><button id="clear">Apagar o histórico</button></div>'
+      + '</table></div><p class="keys">Cada ensaio também é salvo na pasta de downloads (ensaio_tcc_….csv). Para passar os resultados à ficha do roteiro, rode <code>node registrar_ensaios.mjs</code> em apresentacao/tools. A devolutiva pede o ensaio cronometrado; o combinado são três.</p><div class="row"><button id="clear">Apagar o histórico</button></div>'
     : '<p class="keys">Nenhum ensaio ainda. Ao terminar o primeiro, ele aparece aqui.</p>');
   for (const id of ['histBox', 'histBox2']) $(id).innerHTML = html;
   document.querySelectorAll('#clear').forEach(b => b.onclick = () => { if (confirm('Apagar todos os ensaios guardados?')) { save([]); history(); } });
 }
 
+// Salva o ensaio como CSV (primeira linha: quando começou, total e plano). registrar_ensaios.mjs lê esse arquivo.
 function csv() {
-  const rows = [['slide', 'titulo', 'planejado_s', 'realizado_s', 'diferenca_s']].concat(SLIDES.map((s, k) => [s.n, '"' + s.title.replace(/"/g, '""') + '"', s.plan, Math.round(spent[k]), Math.round(spent[k] - s.plan)]));
+  const d = startedAt || new Date(), two = (v) => String(v).padStart(2, '0');
+  const day = d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()), hms = two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  const tot = Math.round(spent.reduce((a, b) => a + b, 0));
+  const rows = [['ensaio_tcc', 'v1', 'inicio', day + 'T' + hms, 'total_s', tot, 'planejado_s', TOTAL], ['slide', 'titulo', 'planejado_s', 'realizado_s', 'diferenca_s']]
+    .concat(SLIDES.map((s, k) => [s.n, '"' + s.title.replace(/"/g, '""') + '"', s.plan, Math.round(spent[k]), Math.round(spent[k] - s.plan)]));
   const blob = new Blob(['\\uFEFF' + rows.map(r => r.join(';')).join('\\r\\n')], { type: 'text/csv' });
-  const d = new Date(), two = (v) => String(v).padStart(2, '0');
-  const stamp = d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + '_' + two(d.getHours()) + 'h' + two(d.getMinutes());
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ensaio_' + stamp + '.csv'; a.click();
+  const name = 'ensaio_tcc_' + day + '_' + hms.replace(/:/g, '') + '.csv';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  return name;
 }
 
 $('go').onclick = start; $('again').onclick = start; $('next').onclick = next; $('prev').onclick = prev; $('pause').onclick = pause; $('csv').onclick = csv;

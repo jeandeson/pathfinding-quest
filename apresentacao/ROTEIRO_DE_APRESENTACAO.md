@@ -75,13 +75,16 @@ Isso mede o texto, não você. O seu ritmo, com as pausas, só aparece nos ensai
 ### Como ensaiar
 
 1. Abra **`apresentacao/ensaio/ensaio.html`** (dois cliques; abre no navegador). A página mostra o slide, a fala e dois cronômetros: o do slide, com a meta dele, e o total. Aperte **Espaço** para começar e para avançar. No fim ela mostra a tabela "planejado × realizado", marca os slides em que você estourou e guarda o resultado de cada ensaio.
-2. Faça **três ensaios completos**, em voz alta, em pé, com a demonstração no slide 12. A página guarda os três; copie os totais para cá:
+2. Faça **três ensaios completos**, em voz alta, em pé, com a demonstração no slide 12. Ao terminar cada um, a página salva o resultado na pasta de downloads; o comando `node registrar_ensaios.mjs` (em `apresentacao/tools`) preenche a ficha abaixo. A coluna "Ajuste" é sua: anote o que vai mudar para o ensaio seguinte.
 
-| Ensaio | Data | Tempo total | Slide em que estourei | Ajuste |
+<!-- ensaios:inicio -->
+| Ensaio | Data | Tempo total | Slides acima da meta | Ajuste |
 |---|---|---|---|---|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
+| 1º | | | |  |
+| 2º | | | |  |
+| 3º | | | |  |
+
+<!-- ensaios:fim -->
 
 3. No terceiro ensaio, peça para alguém fazer as três perguntas da seção 4 e responda indo ao slide de apoio (número + Enter).
 4. Um ensaio final no próprio PowerPoint, em modo Apresentador (Alt+F5), para acostumar com as anotações e o controle.
@@ -263,7 +266,17 @@ Para ir a um slide de apoio durante a apresentação: **digite o número e apert
 **Equipamento**
 - Abra o simulador e o repositório em abas, antes de começar. Teste a tecla D.
 - Tenha um vídeo curto da demonstração gravado (plano B).
-- **Teste os dois QR codes do slide 22 com o seu celular, na sala, com o projetor ligado**, a partir do fundo da sala. Eles foram conferidos por decodificação automática (inclusive com a imagem reduzida, desfocada e com pouco contraste), mas a leitura na tela real depende do projetor e da luz da sala, e isso só se confere lá. Se algum falhar, o endereço está escrito ao lado do código.
+- **Teste os dois QR codes do slide 22 com o seu celular, na sala, com o projetor ligado**, a partir do fundo da sala. Eles foram conferidos por decodificação automática (inclusive com a imagem reduzida, desfocada e com pouco contraste), mas a leitura na tela real depende do projetor e da luz da sala, e isso só se confere lá. Se algum falhar, o endereço está escrito ao lado do código. Os dois endereços abrem em celular sem login: o repositório é público e o simulador cabe na tela e responde ao toque (menu, iniciar, tocar no mapa); a tecla D e a troca de algoritmo do jogador pedem teclado.
+
+<!-- qr:inicio -->
+
+| Teste dos QR codes com o celular | Data | Resultado |
+|---|---|---|
+| Em um monitor, antes da defesa | | |
+| Na sala, com o projetor | | |
+
+<!-- qr:fim -->
+
 
 **Postura**
 - Fale para a banca. Pause depois de cada número de impacto (3 contra 399; menos de 2 ms).

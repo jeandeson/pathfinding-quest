@@ -221,7 +221,11 @@ node build_ensaio.mjs                                                       # p�
 
 O `ensaio_cronometrado.ps1` lê a fala de cada slide no roteiro, sintetiza com a voz em português do Windows e mede a duração, comparando com o tempo planejado. O resultado fica em `apresentacao/ensaio/ensaio_cronometrado.csv`; com `-Audio`, grava também um `.wav` por slide.
 
-Para o ensaio de verdade, em voz alta, abra **`apresentacao/ensaio/ensaio.html`** no navegador: a página mostra cada slide com a fala do roteiro, cronometra o slide e o total contra o planejado, e ao final lista os slides em que o tempo estourou. Cada ensaio fica guardado no navegador e pode ser baixado em CSV.
+Para o ensaio de verdade, em voz alta, abra **`apresentacao/ensaio/ensaio.html`** no navegador: a página mostra cada slide com a fala do roteiro, cronometra o slide e o total contra o planejado, e ao final lista os slides em que o tempo estourou. Cada ensaio fica guardado no navegador e é salvo em CSV na pasta de downloads (`ensaio_tcc_AAAA-MM-DD_HHMMSS.csv`).
+
+```bash
+node registrar_ensaios.mjs   # copia os CSV para apresentacao/ensaio/realizados/, preenche a ficha de ensaios do roteiro e regenera os .docx
+```
 
 ### 2b. Regenerar as figuras do artigo
 
