@@ -623,7 +623,9 @@ Set-Notes $s @"
 2. Inicie o jogo e clique no mapa: o caminho é traçado até o destino.
 3. Aperte D: aparecem a grade e os custos f de cada célula.
 4. Troque para o DFS-Greedy (tecla 4 no jogador, R nos inimigos) e mostre o caminho mais longo.
-5. Se houver tempo, volte ao menu e abra o modo benchmark (ele gera os dados dos próximos slides).
+5. Se houver tempo, abra o modo benchmark (ele gera os dados dos próximos slides): no menu, "Executar Benchmark" e depois "Executar Testes". Leva cerca de 45 s e a tela fica parada enquanto roda; fale dos cenários enquanto espera.
+Atenção (medido no simulador publicado): os inimigos perseguem o jogador; com ele parado, o jogo pode acabar em 12 a 25 s. Explique enquanto clica; se der "Game Over", use "Jogar novamente". Não há tecla para voltar ao menu durante o jogo: use o botão "Menu principal" da tela de fim de jogo ou F5.
+Tempo: passos 1 a 4 em 1:30; com o passo 5, 2:30.
 Plano B: se a rede falhar, use este slide e diga que há uma gravação.
 "@
 

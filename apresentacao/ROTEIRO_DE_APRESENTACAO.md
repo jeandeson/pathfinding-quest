@@ -163,7 +163,13 @@ Abra o simulador (aba já aberta antes de começar). Faça nesta ordem:
 2. Inicie o jogo e **clique no mapa**: o caminho é traçado até o destino.
 3. Aperte a tecla **D**: aparecem a grade e os custos f de cada célula.
 4. Troque para o DFS-Greedy (tecla 4 para o jogador, R para os inimigos) e mostre o caminho mais longo.
-5. Se houver tempo, volte ao menu e abra o **modo benchmark**.
+5. Se houver tempo, abra o **modo benchmark**: no menu, "Executar Benchmark" e depois "Executar Testes".
+
+A demonstração foi executada e cronometrada no simulador publicado. Três coisas para saber antes de fazê-la ao vivo:
+
+- **Os inimigos perseguem você.** Com o jogador parado, o jogo acabou em 12 a 25 segundos em duas de três partidas. Explique enquanto clica; se aparecer "Game Over", use "Jogar novamente".
+- **Não há tecla para voltar ao menu durante o jogo.** Volte pelo botão "Menu principal" da tela de fim de jogo ou recarregue a página (F5, cerca de 2 segundos).
+- **O modo benchmark leva cerca de 45 segundos**, e a tela fica parada enquanto roda. Fale dos cenários enquanto espera. Com isso, os passos 1 a 4 cabem em 1:30 e os cinco, em 2:30.
 
 > **Plano B:** se a rede falhar, fique no slide 12 (ele mostra as duas telas com os quatro pontos) e diga: "Tenho uma gravação; sigo pelos slides."
 
