@@ -370,7 +370,7 @@ foreach ($it in $items) {
     $null = Add-Rect $s 40 $y 54 54 $cMagenta -1 0 $true 0.14
     $null = Add-Text $s 40 ($y + 10) 54 $it.n 26 $cWhite $true 'center'
     $null = Add-Text $s 114 ($y - 3) 700 $it.t 28 $cPurple $true
-    $null = Add-Text $s 114 ($y + 30) 560 $it.d 22 $cTextMid
+    $null = Add-Text $s 114 ($y + 30) 560 $it.d $szBody $cTextMid
     $null = Add-Text $s 690 ($y + 10) 130 $it.m 24 $cTextMid $false 'right'
     $y += 73
 }
@@ -419,7 +419,7 @@ Set-Notes $s @"
 "@
 
 # ── 5. OS 5 ALGORITMOS ───────────────────────────────────────────────────────
-$s = New-ContentSlide 'Os 5 algoritmos' 'Quatro garantem o caminho ótimo; o DFS-Greedy, não' $sec2
+$s = New-ContentSlide 'Os 5 algoritmos' 'Quatro chegam ao caminho ótimo; o DFS-Greedy, não' $sec2
 $yes = @{ t = '✓  Sim'; c = $cOK;  b = $true }
 $no  = @{ t = '✗  Não'; c = $cErr; b = $true }
 $rows = @(
@@ -428,7 +428,7 @@ $rows = @(
     @( @{ t = 'BFS'; b = $true },        $yes, 'Camada por camada, com fila FIFO' ),
     @( @{ t = 'DFS-Greedy'; b = $true; sub = 'variante adotada' }, $no, 'Pilha LIFO guiada por Manhattan' ),
     @( @{ t = 'A*'; b = $true },         $yes, 'f(n) = g(n) + h(n)' ),
-    @( @{ t = 'JPS'; b = $true },        $yes, 'A* com saltos e poda de simetrias' )
+    @( @{ t = 'JPS'; b = $true },        @{ t = '✓  Sim'; c = $cOK; b = $true; sub = 'validado nos testes' }, 'A* com saltos e poda de simetrias' )
 )
 $tblTop = 130; $headH = 40; $rowH = 54
 $tb = Add-Table $s 40 $tblTop @(290, 180, 410) $rows 22 $rowH 1 $headH
@@ -438,7 +438,7 @@ for ($r = 0; $r -lt 5; $r++) {
     $null = Add-Swatch $s 54 ($tblTop + $headH + $r * $rowH + ($rowH - 14) / 2) $algColor[$order[$r]]
 }
 Set-Notes $s @"
-[1:00] Não leia célula por célula. Dijkstra é a base: ótimo, sem heurística, explora tudo por custo. BFS usa fila e garante o menor número de passos em grade de custo uniforme. O DFS entra na variante adotada, o DFS-Greedy: pilha guiada pela distância de Manhattan, rápido, mas sem garantia de ótimo. O A* soma custo real e estimativa. O JPS é o A* com saltos.
+[1:00] Não leia célula por célula. Dijkstra é a base: ótimo, sem heurística, explora tudo por custo. BFS usa fila e garante o menor número de passos em grade de custo uniforme. O DFS entra na variante adotada, o DFS-Greedy: pilha guiada pela distância de Manhattan, rápido, mas sem garantia de ótimo. O A* soma custo real e estimativa. O JPS é o A* com saltos; na adaptação para 4 direções, a otimalidade foi validada nos testes (mesmos comprimentos do A*), não herdada da prova original.
 As cores dos quadradinhos são as mesmas dos gráficos de resultados.
 "@
 
@@ -566,17 +566,16 @@ $s = New-ContentSlide 'Cenários de teste' 'Quatro cenários, quatro métricas, 
 $cen = @(
     @{ t = 'Densidade de obstáculos'; d = 'Grade 20×20  ·  densidades 0,2 e 0,4' },
     @{ t = 'Múltiplos NPCs';          d = 'Grade 20×20  ·  50 NPCs simultâneos' },
-    @{ t = 'Congestionamento';        d = 'Corredor 30×30  ·  5 a 50 NPCs' },
-    @{ t = 'Objetivos dinâmicos';     d = 'Grade 40×40  ·  3 destinos em série' }
+    @{ t = 'Congestionamento';        d = 'Corredor em grade 30×30  ·  5 a 50 NPCs' },
+    @{ t = 'Objetivos dinâmicos';     d = 'Grade 40×40  ·  3 destinos em sequência' }
 )
 for ($i = 0; $i -lt 4; $i++) {
-    $x = 40 + ($i % 2) * 450
-    $y = 134 + [math]::Floor($i / 2) * 126
-    $null = Add-Card $s $x $y 430 112 $tGray
-    $null = Add-Rect $s ($x + 16) ($y + 18) 46 46 $cMagenta -1 0 $true 0.14
-    $null = Add-Text $s ($x + 16) ($y + 26) 46 "$($i + 1)" 24 $cWhite $true 'center'
-    $null = Add-Text $s ($x + 78) ($y + 13) 340 $cen[$i].t 26 $cPurple $true
-    $null = Add-Text $s ($x + 78) ($y + 56) 345 $cen[$i].d 22 $cTextMid
+    $y = 134 + $i * 64
+    $null = Add-Card $s 40 $y 880 54 $tGray
+    $null = Add-Rect $s 50 ($y + 6) 42 42 $cMagenta -1 0 $true 0.14
+    $null = Add-Text $s 50 ($y + 11) 42 "$($i + 1)" 24 $cWhite $true 'center'
+    $null = Add-Text $s 108 ($y + 10) 330 $cen[$i].t 26 $cPurple $true
+    $null = Add-Text $s 450 ($y + 12) 462 $cen[$i].d $szBody $cTextMid
 }
 $null = Add-Text $s 40 396 400 'MÉTRICAS' $szNote $cMagenta $true
 $null = Add-Text $s 40 420 790 'Tempo  ·  nós expandidos  ·  comprimento do caminho  ·  taxa de sucesso' $szBody $cTextDk $true
@@ -649,7 +648,7 @@ $concl = @(
     @{ ic = '✓'; c = $cOK;      f = $tGreen;   t = "[[$BUDGET atendido:]] 50 NPCs em menos de 2 ms" },
     @{ ic = '✓'; c = $cMagenta; f = $tMagenta; t = "[[JPS:]] até $($dv.jpsCut04IntF)% menos nós expandidos em grades densas" },
     @{ ic = '✓'; c = $cBlueDk;  f = $tBlue;    t = '[[A*:]] melhor equilíbrio entre caminho ótimo e tempo' },
-    @{ ic = '✗'; c = $cErr;     f = $tRed;     t = "[[DFS-Greedy:]] o mais rápido, mas com caminho $($dv.dfsExtraPathF)% mais longo" }
+    @{ ic = '✗'; c = $cErr;     f = $tRed;     t = "[[DFS-Greedy:]] o mais rápido, mas com caminho até $($dv.dfsExtraPathF)% mais longo" }
 )
 $y = 134
 foreach ($c in $concl) {
@@ -845,7 +844,7 @@ $null = Add-Bullets $s 662 136 262 @(
     '[[open:]] heap binário, extrai o menor f(n)',
     '[[nodesVisited:]] conta os nós expandidos',
     '[[h:]] distância de Manhattan'
-) 20 16 $cBlue
+) $szBody 14 $cBlue
 Set-Notes $s 'Trecho real do repositório (src/pathfinding/PathfindingSystem.ts, método aStar), sem as linhas em branco. open é um heap binário com remoção preguiçosa (lazy deletion): entradas obsoletas são descartadas ao sair da fila. nodesVisited é incrementado quando o nó é extraído e expandido, de forma idêntica nos cinco algoritmos.'
 
 # ── 24. CÓDIGO: JPS ──────────────────────────────────────────────────────────
@@ -875,7 +874,7 @@ $null = Add-Bullets $s 662 136 262 @(
     '[[null:]] obstáculo ou borda, sem salto',
     '[[jpsHasForced:]] vizinho forçado',
     '[[jpsProbe:]] sondagem perpendicular, a cada célula'
-) 20 16 $cMagenta
+) $szBody 14 $cMagenta
 Set-Notes $s 'Trecho real do repositório (método jpsJump), com uma quebra de linha a mais na primeira condição para caber no slide. A rotina avança uma célula por vez na direção (dx, dy). Devolve a célula se ela for o objetivo, se tiver vizinho forçado ou se uma sondagem perpendicular (jpsProbe) encontrar o objetivo ou um vizinho forçado. As sondagens a cada célula são o custo extra da adaptação para 4 direções.'
 
 # ── 25–26. TABELAS: DENSIDADE (20×20 e 40×40) ────────────────────────────────

@@ -44,7 +44,7 @@ Para cada um, saiba responder: *como funciona? garante o caminho ótimo? usa heu
 - **Como (canônico):** desce o mais fundo possível num ramo antes de voltar (backtracking), usando **pilha LIFO**.
 - **Problema do DFS canônico:** sem heurística, expande vizinhos em ordem fixa (N,S,O,L) e pode percorrer a área inteira — gerou NPCs "andando para o lado oposto do objetivo". **Inaplicável em jogo real.**
 - **Variante adotada (DFS-Greedy):** antes de empilhar, ordena os vizinhos por **distância Manhattan decrescente**. Como a pilha é LIFO, o vizinho mais próximo do objetivo fica no topo e é expandido primeiro → direciona a busca **sem mudar a estrutura de pilha**.
-- **Ótimo?** **Não** — caminhos sistematicamente mais longos (45 vs 39 = 15% mais longo em grade esparsa). **Heurística?** Sim (só para ordenar). **Memória:** baixa em teoria, mas **esta implementação usa `visited` + `cameFrom`, ambos O(V)** — então abriu mão da vantagem clássica de memória do DFS em troca de prevenção de ciclos.
+- **Ótimo?** **Não** — em mapas abertos os caminhos saem mais longos (45 vs 39 = 15% a mais em grade esparsa); só iguala o ótimo quando os obstáculos restringem as rotas (densidade 0,4 e corredor). **Heurística?** Sim (só para ordenar). **Memória:** baixa em teoria, mas **esta implementação usa `visited` + `cameFrom`, ambos O(V)** — então abriu mão da vantagem clássica de memória do DFS em troca de prevenção de ciclos.
 - **Honestidade técnica (ponto forte da sua defesa):** você admite que essa variante não é o DFS canônico e explica o porquê. Isso impressiona banca.
 
 ### A\* (Hart, Nilsson, Raphael, 1968)
