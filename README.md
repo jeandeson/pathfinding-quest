@@ -195,6 +195,17 @@ O que o `build_all.ps1` executa, na ordem:
 
 Nenhum número dos slides é digitado à mão: o builder lê `deck_data.json`.
 
+### 2a. Roteiros e ensaio cronometrado
+
+```bash
+cd apresentacao/tools
+node md_lint_fix.mjs ../ROTEIRO_DE_APRESENTACAO.md ../ROTEIRO_DE_ESTUDO.md   # evita que "A*" e "~8%" virem ênfase ou tachado
+node roteiros_docx.mjs                                                      # .md → .docx (os .md são a fonte)
+powershell -ExecutionPolicy Bypass -File ensaio_cronometrado.ps1            # cronometra a fala de cada slide
+```
+
+O `ensaio_cronometrado.ps1` lê a fala de cada slide no roteiro, sintetiza com a voz em português do Windows e mede a duração, comparando com o tempo planejado. O resultado fica em `apresentacao/ensaio/ensaio_cronometrado.csv`; com `-Audio`, grava também um `.wav` por slide.
+
 ### 2b. Regenerar as figuras do artigo
 
 ```bash
