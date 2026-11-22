@@ -1,16 +1,23 @@
 ﻿# Auditoria de legibilidade do .pptx final (PowerPoint COM, somente leitura).
-# Regras (devolutiva de 18/09/2026):
-#   1. nenhum texto abaixo de 18 pt;
-#   2. título de cada slide de conteúdo com 36 pt ou mais;
-#   3. nada fora da área do slide;
-#   4. nada invade a área do logo UNIJORGE (canto inferior direito);
-#   5. texto de etiquetas/formas não transborda a própria forma.
+# Regras: a tabela de tamanhos da devolutiva de 18/09/2026, por classe de texto.
+#   1. títulos dos slides de conteúdo: 36 a 44 pt;
+#   2. corpo (todo texto que não é tabela, rótulo nem rodapé): 24 pt ou mais;
+#   3. rótulos (células de tabela e formas "Rotulo ..." de diagramas e legendas): 20 pt ou mais
+#      (a devolutiva pede no mínimo 18–20);
+#   4. rodapé: só o número do slide ("NumeroSlide"), entre 16 e 18 pt;
+#   5. gráficos inseridos no tamanho em que foram renderizados (1 px = 1 pt), para que
+#      as fontes de 20 px do slide_charts.html valham 20 pt no slide;
+#   6. nada fora da área do slide;
+#   7. nada invade a área do logo UNIJORGE (canto inferior direito);
+#   8. texto de etiquetas/formas não transborda a própria forma.
 # Sai com código 1 se alguma regra falhar. Uso: powershell -File audit_deck.ps1 [-Dump]
 param([switch]$Dump)
 $ErrorActionPreference = 'Stop'
 $apres = Split-Path -Parent $PSScriptRoot
 $pptx  = Join-Path $apres 'TCC_Apresentacao_Jeandeson.pptx'
-$MIN_PT = 18; $MIN_TITLE = 36
+$MIN_TITLE = 36; $MAX_TITLE = 44; $MIN_BODY = 24; $MIN_LABEL = 20; $MIN_FOOT = 16; $MAX_FOOT = 18
+$chartSizes = @('575x385', '790x370')            # tamanhos nativos de render_slide_charts.mjs
+$seen = @{ corpo = 999; rotulo = 999; tabela = 999; rodape = 999 }
 
 $ppt = New-Object -ComObject PowerPoint.Application
 $hadOpen = $ppt.Presentations.Count
@@ -42,6 +49,16 @@ try {
             $l = $sh.Left; $t = $sh.Top; $r = $l + $sh.Width; $b = $t + $sh.Height
             $sizes = @()
             $texts = @()
+            # classe do texto, pela tabela da devolutiva
+            $class = 'corpo'; $floor = $MIN_BODY
+            if ($sh.HasTable)                  { $class = 'tabela'; $floor = $MIN_LABEL }
+            elseif ($sh.Name -like 'Rotulo*')  { $class = 'rotulo'; $floor = $MIN_LABEL }
+            elseif ($sh.Name -eq 'NumeroSlide') { $class = 'rodape'; $floor = $MIN_FOOT }
+            # regra 5: gráfico no tamanho nativo
+            if (($sh.Type -eq 13) -and ($sh.AlternativeText -like 'Gráfico*')) {
+                $dim = "$([math]::Round($sh.Width))x$([math]::Round($sh.Height))"
+                if ($chartSizes -notcontains $dim) { $null = $fails.Add("slide ${i}: gráfico em $dim pt, fora do tamanho nativo ($($chartSizes -join ', ')): as fontes deixam de valer 20 pt") }
+            }
             if ($sh.HasTable) {
                 $tbl = $sh.Table
                 for ($rr = 1; $rr -le $tbl.Rows.Count; $rr++) {
@@ -66,10 +83,12 @@ try {
             foreach ($z in $sizes) {
                 if ($z -lt $min) { $min = $z }
                 if ($z -gt $max) { $max = $z }
-                if ($z -lt $MIN_PT) {
+                if ($z -lt $seen[$class]) { $seen[$class] = $z }
+                if ($z -lt $floor) {
                     $txt = ''; try { $txt = $sh.TextFrame.TextRange.Text } catch {}
-                    $null = $fails.Add("slide ${i}: fonte de $z pt (< $MIN_PT): '$txt'")
+                    $null = $fails.Add("slide ${i}: $class com $z pt (mínimo $floor): '$txt'")
                 }
+                if (($class -eq 'rodape') -and ($z -gt $MAX_FOOT)) { $null = $fails.Add("slide ${i}: rodapé com $z pt (máximo $MAX_FOOT)") }
             }
             # regra 3: fora do slide (ignora decoração do template, que sangra de propósito)
             $isTemplateBleed = (($t -lt 0) -or ($l -le 0.5 -and $sh.Width -lt 320 -and $t -lt 100))
@@ -99,7 +118,7 @@ try {
         if ($isContent) {
             $tt = $s.Shapes.Item(4).TextFrame.TextRange
             $titlePt = $tt.Font.Size
-            if ($titlePt -lt $MIN_TITLE) { $null = $fails.Add("slide ${i}: título com $titlePt pt (< $MIN_TITLE): '$($tt.Text)'") }
+            if (($titlePt -lt $MIN_TITLE) -or ($titlePt -gt $MAX_TITLE)) { $null = $fails.Add("slide ${i}: título com $titlePt pt (faixa $MIN_TITLE–$MAX_TITLE): '$($tt.Text)'") }
             $ban = $s.Shapes.Item(3)
             if (($s.Shapes.Item(4).Left + $s.Shapes.Item(4).Width) -gt ($ban.Left + $ban.Width)) { $null = $fails.Add("slide ${i}: título maior que a faixa") }
         }
@@ -114,5 +133,6 @@ try {
 
 if ($Dump) { $report | ForEach-Object { $_ } }
 "`n=== audit_deck: $($report.Count) slides  ·  $($fails.Count) falha(s) ==="
+"menor fonte por classe: corpo $($seen.corpo) pt (mínimo $MIN_BODY) | tabelas $($seen.tabela) pt e rótulos $($seen.rotulo) pt (mínimo $MIN_LABEL) | rodapé $($seen.rodape) pt ($MIN_FOOT–$MAX_FOOT)"
 if ($fails.Count) { $fails | ForEach-Object { "  x $_" }; exit 1 }
-"OK: nenhum texto abaixo de $MIN_PT pt; títulos >= $MIN_TITLE pt; nada fora do slide nem sobre o logo."
+"OK: títulos $MIN_TITLE–$MAX_TITLE pt; corpo >= $MIN_BODY pt; rótulos e tabelas >= $MIN_LABEL pt; rodapé só com o número do slide; gráficos em tamanho nativo; nada fora do slide nem sobre o logo."

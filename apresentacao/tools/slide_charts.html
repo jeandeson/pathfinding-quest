@@ -53,11 +53,13 @@ const ALGOS = CD.chartA.algos;           // ordem fixa: A*, Dijkstra, BFS, DFS, 
 
 Chart.defaults.color = INK;
 Chart.defaults.font.family = FONT;
-Chart.defaults.font.size = 18;
+// Nenhum texto dos gráficos abaixo de 20 px (= 20 pt no slide): eixos, títulos de eixo,
+// contexto do cenário, valores e rótulos de série. render_slide_charts.mjs confere.
+Chart.defaults.font.size = 20;
 Chart.defaults.animation = false;
 
-const tick  = (extra = {}) => ({ color: INK, font: { size: 18 }, ...extra });
-const title = (text) => ({ display: true, text, color: MUTED, font: { size: 18, weight: '600' }, padding: 6 });
+const tick  = (extra = {}) => ({ color: INK, font: { size: 20 }, ...extra });
+const title = (text) => ({ display: true, text, color: MUTED, font: { size: 20, weight: '600' }, padding: 6 });
 
 // ── Plugins de desenho ───────────────────────────────────────────────────────
 const txt = (ctx, s, x, y, { size = 20, weight = 'bold', color = INK, align = 'left', base = 'middle' } = {}) => {
@@ -85,7 +87,7 @@ const corner = {
   id: 'corner',
   afterDraw(chart, _a, opts) {
     if (!opts || !opts.text) return;
-    txt(chart.ctx, opts.text, chart.chartArea.left + (opts.dx || 0), (opts.y ?? 14), { size: 18, weight: '600', color: MUTED });
+    txt(chart.ctx, opts.text, chart.chartArea.left + (opts.dx || 0), (opts.y ?? 14), { size: 20, weight: '600', color: MUTED });
   },
 };
 
@@ -282,10 +284,10 @@ function scale5() {
     type: 'line',
     data: { datasets: ALGOS.map(a => lineSet(a, 4)) },
     options: base({
-      padding: { top: 40, right: 222, bottom: 0, left: 4 },
+      padding: { top: 40, right: 236, bottom: 0, left: 4 },
       plugins: {
         corner: { text: 'Corredor 30×30 · densidade 0,2 · eixo ampliado' },
-        endLabels: { on: true, size: 19, gap: 30 },
+        endLabels: { on: true, size: 20, gap: 30 },
       },
       scales: {
         x: npcAxis(),

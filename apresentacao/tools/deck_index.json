@@ -1,0 +1,224 @@
+[
+    {
+        "n":  1,
+        "kind":  "cover",
+        "title":  "Capa",
+        "notes":  "[0:35] Cumprimente a banca. \"Sou Jeandeson Nascimento e apresento meu TCC: uma análise comparativa de algoritmos de pathfinding para NPCs em jogos 2D no navegador, orientado pelo professor Gilson Amorim Carvalho.\"\nGancho: cinco algoritmos e uma pergunta: qual usar em um jogo web e quanto custa, de verdade, rodar cada um no navegador?"
+    },
+    {
+        "n":  2,
+        "kind":  "content",
+        "title":  "Agenda",
+        "notes":  "[0:20] Passe pelos cinco blocos sem detalhar: introdução, referencial dos cinco algoritmos, metodologia com o simulador, resultados dos benchmarks e conclusão. Cada seção abre com um slide divisório."
+    },
+    {
+        "n":  3,
+        "kind":  "section",
+        "title":  "Seção 01",
+        "notes":  "[0:05] Divisória: não pare aqui. Diga só a frase de passagem e avance: \"Começo pelo problema.\""
+    },
+    {
+        "n":  4,
+        "kind":  "content",
+        "title":  "Problema",
+        "notes":  "[1:00] Em jogos de exploração, o movimento inteligente dos NPCs é essencial. O dev indie tem IA pronta em Unity e Phaser, mas a literatura clássica mede pathfinding em C++ ou código nativo. No navegador quem executa é o motor V8: compilação JIT, coletor de lixo e relógio com resolução limitada mudam o custo real. A lacuna específica é a comparação A* contra JPS em JavaScript.\nLeia a pergunta de pesquisa apontando para o cartão."
+    },
+    {
+        "n":  5,
+        "kind":  "content",
+        "title":  "Objetivos",
+        "notes":  "[0:45] Objetivo geral: comparar o desempenho dos cinco algoritmos em um ambiente 2D com obstáculos, com um simulador em TypeScript. Específicos, em uma frase: estudar os princípios, implementar do zero, disponibilizar o simulador online, avaliar por métricas (tempo, nós expandidos, comprimento do caminho e taxa de sucesso) e validar a admissibilidade da heurística de Manhattan."
+    },
+    {
+        "n":  6,
+        "kind":  "section",
+        "title":  "Seção 02",
+        "notes":  "[0:05] Divisória: não pare aqui. Frase de passagem: \"Primeiro, os cinco algoritmos.\""
+    },
+    {
+        "n":  7,
+        "kind":  "content",
+        "title":  "Os 5 algoritmos",
+        "notes":  "[1:00] Não leia célula por célula. Dijkstra é a base: ótimo, sem heurística, explora tudo por custo. BFS usa fila e garante o menor número de passos em grade de custo uniforme. O DFS entra na variante adotada, o DFS-Greedy: pilha guiada pela distância de Manhattan, rápido, mas sem garantia de ótimo. O A* soma custo real e estimativa. O JPS é o A* com saltos; na adaptação para 4 direções, a otimalidade foi validada nos testes (mesmos comprimentos do A*), não herdada da prova original.\nAs cores dos quadradinhos são as mesmas dos gráficos de resultados."
+    },
+    {
+        "n":  8,
+        "kind":  "content",
+        "title":  "A*",
+        "notes":  "[0:50] O A* concilia o Dijkstra com a busca heurística. f(n) soma o custo real g(n) com a estimativa h(n). Com heurística admissível (que nunca superestima) o caminho encontrado é o ótimo. Em grade de 4 direções a distância de Manhattan é admissível e consistente (prova no slide de apoio 36). A lista aberta é um heap binário: O((V+E) log V)."
+    },
+    {
+        "n":  9,
+        "kind":  "content",
+        "title":  "JPS",
+        "notes":  "[1:00] Mesmo mapa, dois algoritmos. O A* expande as nove células do corredor, uma a uma. O JPS salta em linha reta e só para em um ponto de salto: aqui, a célula P, onde o fim do obstáculo cria um vizinho forçado. Resultado: 2 nós expandidos em vez de 9, e o mesmo caminho.\nO JPS original (Harabor e Grastien, 2011) usa 8 direções. Neste trabalho foi adaptado para 4 direções; os detalhes estão no slide de apoio 27."
+    },
+    {
+        "n":  10,
+        "kind":  "section",
+        "title":  "Seção 03",
+        "notes":  "[0:05] Divisória: não pare aqui. Frase de passagem: \"Como medi tudo isso?\""
+    },
+    {
+        "n":  11,
+        "kind":  "content",
+        "title":  "Ambiente de medição",
+        "notes":  "[0:55] Três decisões. Implementação: TypeScript e Canvas 2D nativo, sem framework de jogo e sem biblioteca de pathfinding, para não inserir variáveis externas. Medição: Chrome headless; como o relógio do navegador tem resolução de cerca de 0,1 ms, cada busca é repetida em lote e o tempo é a janela dividida pelo número de repetições, em 10 janelas. Reprodutibilidade: sementes fixas, então nós expandidos e caminhos são idênticos em qualquer máquina; só o tempo depende do hardware.\nDetalhes do protocolo: slide de apoio 35."
+    },
+    {
+        "n":  12,
+        "kind":  "content",
+        "title":  "Simulador",
+        "notes":  "[2:30 com a demonstração] Abra o simulador ao vivo (abas já abertas antes de começar). Roteiro da demo:\n1. No menu, selecione o algoritmo dos NPCs.\n2. Inicie o jogo e clique no mapa: o caminho é traçado até o destino.\n3. Aperte D: aparecem a grade e os custos f de cada célula.\n4. Troque para o DFS-Greedy (tecla 4 no jogador, R nos inimigos) e mostre o caminho mais longo.\n5. Se houver tempo, volte ao menu e abra o modo benchmark (ele gera os dados dos próximos slides).\nPlano B: se a rede falhar, use este slide e diga que há uma gravação."
+    },
+    {
+        "n":  13,
+        "kind":  "content",
+        "title":  "Cenários de teste",
+        "notes":  "[0:40] Quatro cenários: densidade de obstáculos em grade 20×20; múltiplos NPCs, com 50 buscas simultâneas; congestionamento, com todos convergindo para um corredor central em grade 30×30; e objetivos dinâmicos em grade 40×40, com replanejamento em três etapas. Em todos, as mesmas quatro métricas. Os resultados de 40×40 e de objetivos dinâmicos estão nos slides de apoio 31 e 34."
+    },
+    {
+        "n":  14,
+        "kind":  "section",
+        "title":  "Seção 04",
+        "notes":  "[0:05] Divisória: não pare aqui. Frase de passagem: \"Aos resultados.\""
+    },
+    {
+        "n":  15,
+        "kind":  "content",
+        "title":  "Nós expandidos",
+        "notes":  "[1:05] O resultado mais marcante. Grade 20×20 com densidade 0,4: A*, Dijkstra e BFS expandem 399 nós; o JPS, apenas 3. Redução de 99,2%. Pause aqui.\nPor quê: obstáculos densos criam vizinhos forçados, e poucos pontos de salto ligam origem e destino. O caminho continua ótimo, 39 células, igual ao do A*.\nNa densidade 0,2 a vantagem é menor: 66 contra 103 nós (36% a menos). Tabela completa: slide de apoio 30."
+    },
+    {
+        "n":  16,
+        "kind":  "content",
+        "title":  "Escalabilidade",
+        "notes":  "[0:55] Corredor 30×30 com 5 a 50 NPCs convergindo para o mesmo gargalo. O gráfico mostra só A*, JPS e o limite de 16 ms/quadro (60 fps). O tempo cresce em linha reta, porque cada NPC faz uma busca independente (o motor é single-thread). Com 50 NPCs o A* usa 1,28 ms, 8% do quadro; o JPS, 1,71 ms. Mesmo o mais lento, o Dijkstra, fica em 2,05 ms.\nOs cinco algoritmos juntos: slide de apoio 33. Tabela: slide 32."
+    },
+    {
+        "n":  17,
+        "kind":  "content",
+        "title":  "50 NPCs simultâneos",
+        "notes":  "[0:50] Grade 20×20, 50 buscas no mesmo quadro. Todos terminam em menos de 2 ms: DFS-Greedy 0,51, A* 0,95, BFS 0,96, JPS 1,06 e Dijkstra 1,62 ms. No pior caso, 10% do orçamento de 16 ms/quadro (60 fps).\nConclusão prática: nestas escalas, a taxa de quadros não decide a escolha do algoritmo. Repare que o JPS não é o mais rápido aqui; é o assunto do próximo slide."
+    },
+    {
+        "n":  18,
+        "kind":  "content",
+        "title":  "Trade-offs",
+        "notes":  "[1:00] Leia por linha. A*: caminho ótimo e bom tempo, 0,95 ms. JPS: expande metade dos nós do A* (3.500 contra 7.100) e ainda assim é mais lento, 1,06 ms, porque nesta grade pequena e esparsa as sondagens de cada salto custam mais do que os nós poupados. DFS-Greedy: menos nós e menor tempo, 0,51 ms, mas o caminho tem 45 células contra 39: 15% mais longo.\nSe perguntarem por que o JPS não foi o mais rápido: slide de apoio 24."
+    },
+    {
+        "n":  19,
+        "kind":  "section",
+        "title":  "Seção 05",
+        "notes":  "[0:05] Divisória: não pare aqui. Frase de passagem: \"Concluindo.\""
+    },
+    {
+        "n":  20,
+        "kind":  "content",
+        "title":  "Conclusões",
+        "notes":  "[1:10] Quatro respostas. Um: o orçamento de 16 ms/quadro (60 fps) é atendido com folga; a estimativa inicial de 50 ms por busca do anteprojeto era folgada em mais de uma ordem de grandeza. Dois: o JPS confirma a vantagem em nós expandidos, acima de 99% em grades densas; em tempo, só vence quando a grade é densa. Três: o A* segue como referência geral. Quatro: o DFS-Greedy é o mais rápido, mas não garante o ótimo.\nFrase de fechamento: nas escalas testadas, o gargalo não é a taxa de quadros; são os nós expandidos e a qualidade do caminho que decidem."
+    },
+    {
+        "n":  21,
+        "kind":  "content",
+        "title":  "Limitações e futuro",
+        "notes":  "[0:55] Três limitações, cada uma com a saída. Sem verificação prévia de conectividade, um destino isolado provoca busca exaustiva (foi a etapa 2 do teste dinâmico): basta checar a conectividade antes. O A* não tem memória: a cada mudança no mapa refaz a busca inteira; o D* Lite replaneja só o que mudou. E o custo cresce com o número de agentes e o tamanho do mapa: HPA* e amortização, replanejando parte dos NPCs por quadro.\nDiga também (não está no slide): os tempos foram medidos em um único hardware e não se generalizam a outros dispositivos.\nSe perguntarem sobre ambientes dinâmicos: slide de apoio 26."
+    },
+    {
+        "n":  22,
+        "kind":  "thanks",
+        "title":  "Obrigado",
+        "notes":  "[0:20] \"Obrigado pela atenção. O simulador e o código estão nos QR codes: é só apontar a câmera do celular. Fico à disposição da banca.\"\nDeixe este slide na tela durante a arguição. Para ir a um slide de apoio, digite o número e Enter:\n24 por que o JPS não foi o mais rápido · 25 por que usar DFS · 26 A* em ambientes dinâmicos · 27 JPS em 4 direções · 28 e 29 código · 30 a 34 tabelas completas · 35 protocolo · 36 Manhattan · 37 por que 16 ms."
+    },
+    {
+        "n":  23,
+        "kind":  "section",
+        "title":  "Slides de apoio",
+        "notes":  "Slides de apoio: não fazem parte da fala. Use o número do slide + Enter para ir direto ao assunto perguntado."
+    },
+    {
+        "n":  24,
+        "kind":  "content",
+        "title":  "JPS × tempo",
+        "notes":  "Resposta curta: o JPS reduz nós expandidos, não necessariamente tempo. Na adaptação para 4 direções, cada célula percorrida pelo salto dispara duas sondagens perpendiculares. Em grade pequena e esparsa essas sondagens são longas e custam mais do que os nós poupados: 1,06 ms contra 0,95 ms do A*, mesmo com metade dos nós. Em grade densa os obstáculos encurtam as sondagens: em 40×40 com densidade 0,4 o JPS leva 0,06 ms contra 0,24 ms do A*."
+    },
+    {
+        "n":  25,
+        "kind":  "content",
+        "title":  "DFS-Greedy",
+        "notes":  "Resposta curta: o DFS é a linha de base clássica e mostra, em números, o conflito entre velocidade de busca e qualidade do caminho. O DFS canônico (sem heurística) gerava rotas que se afastavam do objetivo, inviável para NPCs. Por isso a variante adotada, o DFS-Greedy: antes de empilhar, os vizinhos são ordenados pela distância de Manhattan, e o mais próximo do objetivo é expandido primeiro. Continua sem garantia de ótimo: é o mais rápido (0,51 ms para 50 NPCs), com caminho de 45 células contra 39.\nNota: a implementação usa conjunto de visitados e mapa cameFrom, ambos O(V); não preserva a vantagem clássica de memória do DFS."
+    },
+    {
+        "n":  26,
+        "kind":  "content",
+        "title":  "A* dinâmico",
+        "notes":  "Resposta curta: o A* implementado não tem memória. Cada chamada recria a lista aberta e o conjunto fechado e zera f, g e h de todas as células; mudou uma célula, recalcula tudo, com custo O((V+E) log V). Nas escalas medidas isso cabe com folga. Projetando: 50 NPCs replanejando a cada quadro em grade 40×40 com densidade 0,4 dão 50 × 0,24 ms, cerca de 12 ms dos 16 ms do quadro.\nSaídas: D* Lite (propaga só o que mudou), A* fatiado (limita expansões por quadro e persiste a busca) e HPA* (busca hierárquica)."
+    },
+    {
+        "n":  27,
+        "kind":  "content",
+        "title":  "JPS em 4 direções",
+        "notes":  "O JPS original pressupõe 8 direções: a quebra de simetria entre caminhos diagonais é o cerne do método. Com movimento só cardeal, um ponto de curva em corredor aberto nunca seria detectado. A adaptação: ao saltar em uma direção, cada célula percorrida dispara uma sondagem linear nas duas direções perpendiculares; se a sondagem acha o objetivo ou uma célula com vizinho forçado, a célula atual vira ponto de salto. No desenho, a sondagem a partir de P encontra a passagem ao lado do obstáculo.\nCusto: uma sondagem por célula (por isso o JPS não é o mais rápido em grade esparsa). Como é uma adaptação, a otimalidade não é herdada da prova original: foi validada empiricamente, com comprimentos idênticos aos do A* em todos os cenários."
+    },
+    {
+        "n":  28,
+        "kind":  "content",
+        "title":  "Código: A*",
+        "notes":  "Linhas reais do repositório (src/pathfinding/PathfindingSystem.ts, método aStar). Para caber em 24 pt, ficaram de fora as linhas de controle: o descarte de entradas obsoletas e de vizinhos já fechados (closed), o registro do pai (nb.parent) e o conjunto seen. Leitura: open é um heap binário e devolve o menor f(n); nodesVisited conta os nós expandidos, incrementado quando o nó é extraído, de forma idêntica nos cinco algoritmos; h é a distância de Manhattan; f = g + h. O código completo está no repositório (QR code do slide final)."
+    },
+    {
+        "n":  29,
+        "kind":  "content",
+        "title":  "Código: JPS",
+        "notes":  "Linhas reais do repositório (método jpsJump). Para caber em 24 pt, ficou de fora a primeira verificação do laço: se a célula está fora da grade ou é obstáculo, a rotina devolve null (não há salto). Leitura: a rotina avança uma célula por vez na direção (dx, dy) e devolve a célula se ela for o objetivo, se tiver vizinho forçado (jpsHasForced) ou se uma sondagem perpendicular (jpsProbe) encontrar o objetivo ou um vizinho forçado. As duas sondagens a cada célula são o custo extra da adaptação para 4 direções."
+    },
+    {
+        "n":  30,
+        "kind":  "content",
+        "title":  "Tabela: grade 20×20",
+        "notes":  "Tabelas 1 e 2 do artigo. Caminho em células. Destaques: na densidade 0,4 o JPS expande 3 nós contra 399 do A*; o DFS-Greedy acha 45 células na densidade 0,2 (ótimo: 39) e o caminho ótimo na densidade 0,4, onde as rotas viáveis são poucas."
+    },
+    {
+        "n":  31,
+        "kind":  "content",
+        "title":  "Tabela: grade 40×40",
+        "notes":  "Resultados de 40×40 (benchmark_results.csv). Na densidade 0,4 o JPS expande 3 nós contra 1.599 do A* e é cerca de 4 vezes mais rápido (0,06 contra 0,24 ms). Na densidade 0,2 o JPS expande menos nós (330 contra 487), mas é mais lento (0,10 contra 0,07 ms): mesma leitura do slide 24."
+    },
+    {
+        "n":  32,
+        "kind":  "content",
+        "title":  "Tabela: múltiplos NPCs",
+        "notes":  "Tabelas 3 e 5 do artigo. À esquerda, 50 NPCs em grade 20×20 (densidade 0,2): caminho em células, nós expandidos somados e tempo total. À direita, o corredor 30×30 com 5, 10, 20 e 50 NPCs: o tempo dobra quando o número de NPCs dobra (crescimento linear). Maior valor da tabela: Dijkstra, 2,05 ms."
+    },
+    {
+        "n":  33,
+        "kind":  "content",
+        "title":  "Escalabilidade: os 5",
+        "notes":  "Mesmo cenário do slide 16, agora com os cinco algoritmos e o eixo ampliado (0 a 2,5 ms); a linha de 16 ms ficaria muito acima do gráfico. Cada série tem cor, traço e marcador próprios. A* e BFS praticamente coincidem (1,28 e 1,25 ms com 50 NPCs)."
+    },
+    {
+        "n":  34,
+        "kind":  "content",
+        "title":  "Objetivos dinâmicos",
+        "notes":  "Tabela 6 do artigo: grade 40×40, densidade 0,25, três destinos em sequência. Na etapa 2 o destino (20,20) está isolado pelos obstáculos: os três algoritmos varrem todo o espaço alcançável (1.051 nós no A*) e respondem, corretamente, que não há caminho. É a limitação 1 do slide 21: sem verificação prévia de conectividade, o destino inalcançável custa uma busca exaustiva. Nas etapas 1 e 3, os comprimentos são idênticos entre os algoritmos (81 e 59 células)."
+    },
+    {
+        "n":  35,
+        "kind":  "content",
+        "title":  "Protocolo de medição",
+        "notes":  "O Chrome limita a resolução de performance.now() a cerca de 100 microssegundos (mitigação contra Spectre). Uma busca isolada dura menos que isso. Solução: medição em lote, com K calibrado automaticamente até a janela passar de 25 ms; o tempo por busca é a janela dividida por K. Antes de medir, repetições de aquecimento são descartadas para o JIT do V8 estabilizar. O benchmark roda em página isolada (benchmark.html), sem o laço de renderização do jogo. A contagem de nós expandidos é feita dentro do PathfindingSystem, igual para todos os algoritmos."
+    },
+    {
+        "n":  36,
+        "kind":  "content",
+        "title":  "Heurística de Manhattan",
+        "notes":  "Objetivo específico 5. Em grade de 4 direções cada passo cobre uma unidade em uma direção cardeal; para ir de n ao objetivo são necessários pelo menos |Δx| + |Δy| passos. Logo h(n) nunca superestima o custo real: é admissível. Também é consistente, pela desigualdade triangular da norma L1: h(n) ≤ 1 + h(n′). Com isso o A* devolve o caminho de custo mínimo. Evidência experimental: A*, Dijkstra, BFS e JPS produziram caminhos de mesmo comprimento em todos os cenários (39 células em 20×20)."
+    },
+    {
+        "n":  37,
+        "kind":  "content",
+        "title":  "16 ms/quadro",
+        "notes":  "A 60 quadros por segundo, cada quadro dura 1000 ÷ 60 ≈ 16,67 ms. O trabalho adota 16 ms/quadro (60 fps), arredondando para baixo (critério mais exigente). O orçamento é compartilhado: todas as buscas do quadro, mais renderização, lógica e entrada. No pior caso medido, 50 NPCs no corredor com Dijkstra, o pathfinding usa 2,05 ms, 13% do quadro. A estimativa de 50 ms por busca do anteprojeto misturava escalas: uma busca isolada custa centésimos de milissegundo."
+    }
+]

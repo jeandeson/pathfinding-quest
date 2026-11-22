@@ -18,7 +18,8 @@ for (const file of process.argv.slice(2)) {
     if (fenced || /^\r?\n$/.test(line)) return line;
     return line.split(/(`[^`]*`)/).map((seg, i) => {
       if (i % 2 === 1) return seg;                                   // código em linha
-      seg = seg.replace(/\b(HPA|A|D)\*/g, (m, name) => { stars++; return `${name}\\*`; });
+      // não toca no fechamento de negrito ("a tecla **D**"): ali os dois asteriscos são marcação
+      seg = seg.replace(/\b(HPA|A|D)\*(?!\*(?!\*))/g, (m, name) => { stars++; return `${name}\\*`; });
       seg = seg.replace(/~(?=\d)/g, () => { tildes++; return '≈'; });
       return seg;
     }).join('');

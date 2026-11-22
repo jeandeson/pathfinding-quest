@@ -185,15 +185,29 @@ O que o `build_all.ps1` executa, na ordem:
 |---|---|---|
 | Dados dos gráficos | `build_chart_data.mjs` | `chart_data.js` |
 | Dados dos slides (confere cada afirmação contra o CSV) | `build_deck_data.mjs` | `deck_data.json` |
-| Gráficos dos slides (fundo claro, rótulos de 18 pt ou mais) | `render_slide_charts.mjs` | `apresentacao/charts/slide_*.png` |
-| QR codes do slide final (gera e decodifica de volta) | `make_qr.mjs` | `apresentacao/assets/qr_*.png` |
+| Gráficos dos slides (fundo claro; mede a fonte de cada texto desenhado e falha abaixo de 20 pt) | `render_slide_charts.mjs` | `apresentacao/charts/slide_*.png` |
+| QR codes do slide final (escolhe a máscara mais legível e confere com dois leitores, jsQR e ZXing) | `make_qr.mjs` | `apresentacao/assets/qr_*.png` |
 | Capturas do simulador (só com `-Capture`) | `capture_slides.mjs` | `apresentacao/assets/slide_*.png` |
-| Apresentação | `build_from_template.ps1` | `apresentacao/TCC_Apresentacao_Jeandeson.pptx` |
+| Apresentação (37 slides; confere a ordem declarada) | `build_from_template.ps1` | `apresentacao/TCC_Apresentacao_Jeandeson.pptx`, `deck_index.json` |
 | Previews | `export_previews.ps1` | `apresentacao/preview/slide_NN.png` |
-| Auditoria de legibilidade (nenhum texto abaixo de 18 pt, títulos com 36 pt ou mais, nada sobre o logo) | `audit_deck.ps1` | relatório |
+| Auditoria de legibilidade, por classe de texto (ver abaixo) | `audit_deck.ps1` | relatório |
 | QR codes legíveis no slide exportado | `make_qr.mjs --check` | relatório |
+| QR codes sob degradação: menor, desfocado, pouco contraste, ruído, inclinado | `qr_stress.mjs` | relatório |
+| Roteiro × deck: números de slide, títulos, tempos e pontos de controle | `verify_roteiro.mjs` | relatório |
+| Página do ensaio cronometrado | `build_ensaio.mjs` | `apresentacao/ensaio/ensaio.html` |
 
 Nenhum número dos slides é digitado à mão: o builder lê `deck_data.json`.
+
+**Estrutura do deck:** 22 slides na fala (capa, agenda, 5 divisórias de seção, 14 de conteúdo e encerramento com QR codes) e 15 de apoio (divisória + 14 slides para a arguição). Com as divisórias, a numeração coincide com a do deck avaliado na devolutiva de 18/09/2026 (simulador = 12, nós expandidos = 15, escalabilidade = 16).
+
+**Tamanhos de fonte conferidos pela auditoria** (tabela da devolutiva):
+
+| Classe | Pedido na devolutiva | No deck |
+|---|---|---|
+| Títulos | 36–44 pt | 36 pt (capa: 40 pt) |
+| Corpo do texto (inclui cabeçalhos de cartão, callouts e código) | 24–28 pt | 24 pt ou mais |
+| Rótulos de gráficos, tabelas e diagramas | no mínimo 18–20 pt | 20 pt ou mais |
+| Notas de rodapé | evitar ou 16–18 pt | só o número do slide, a 18 pt |
 
 ### 2a. Roteiros e ensaio cronometrado
 
@@ -202,9 +216,12 @@ cd apresentacao/tools
 node md_lint_fix.mjs ../ROTEIRO_DE_APRESENTACAO.md ../ROTEIRO_DE_ESTUDO.md   # evita que "A*" e "~8%" virem ênfase ou tachado
 node roteiros_docx.mjs                                                      # .md → .docx (os .md são a fonte)
 powershell -ExecutionPolicy Bypass -File ensaio_cronometrado.ps1            # cronometra a fala de cada slide
+node build_ensaio.mjs                                                       # página do ensaio (já roda no build_all.ps1)
 ```
 
 O `ensaio_cronometrado.ps1` lê a fala de cada slide no roteiro, sintetiza com a voz em português do Windows e mede a duração, comparando com o tempo planejado. O resultado fica em `apresentacao/ensaio/ensaio_cronometrado.csv`; com `-Audio`, grava também um `.wav` por slide.
+
+Para o ensaio de verdade, em voz alta, abra **`apresentacao/ensaio/ensaio.html`** no navegador: a página mostra cada slide com a fala do roteiro, cronometra o slide e o total contra o planejado, e ao final lista os slides em que o tempo estourou. Cada ensaio fica guardado no navegador e pode ser baixado em CSV.
 
 ### 2b. Regenerar as figuras do artigo
 

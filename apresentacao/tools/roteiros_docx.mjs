@@ -75,17 +75,28 @@ const QUOTE = {
   shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'FBF1F6' },
 };
 
-let listInstance = 0;
+// Cada lista numerada ganha a sua própria definição de numeração, começando no número
+// que o Markdown indica. Sem isso, uma lista interrompida por uma tabela ("1. 2. [tabela]
+// 3. 4.") recomeçava do 1 no Word.
+let olConfigs = [];
+const olLevels = (start) => [0, 1, 2].map(level => ({
+  level, format: LevelFormat.DECIMAL, text: `%${level + 1}.`, alignment: AlignmentType.START, start,
+  style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
+}));
 function list(t, level = 0, extra = {}) {
   const out = [];
-  const inst = t.ordered ? ++listInstance : 0;
+  let ref = null;
+  if (t.ordered) {
+    ref = `ol${olConfigs.length + 1}`;
+    olConfigs.push({ reference: ref, levels: olLevels(Number(t.start) || 1) });
+  }
   for (const item of t.items) {
     let first = true;
     for (const child of item.tokens) {
       if (child.type === 'list') { out.push(...list(child, level + 1, extra)); continue; }
       const inl = child.tokens || [{ type: 'text', text: child.text ?? child.raw ?? '' }];
       const base = first
-        ? (t.ordered ? { numbering: { reference: 'ol', level, instance: inst } } : { bullet: { level } })
+        ? (t.ordered ? { numbering: { reference: ref, level } } : { bullet: { level } })
         : { indent: { left: 720 * (level + 1) } };
       out.push(para(runs(inl), { ...base, ...extra, spacing: { after: 60, line: 276 } }));
       first = false;
@@ -141,22 +152,18 @@ function blocks(tokens, extra = {}) {
   return out;
 }
 
-const levels = [0, 1, 2].map(level => ({
-  level, format: LevelFormat.DECIMAL, text: `%${level + 1}.`, alignment: AlignmentType.START,
-  style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
-}));
-
 for (const name of NAMES) {
-  listInstance = 0;
+  olConfigs = [];
   const md = readFileSync(resolve(APRES, `${name}.md`), 'utf8');
+  const children = blocks(marked.lexer(md, { gfm: true }));          // preenche olConfigs
   const doc = new Document({
     creator: 'Jeandeson Souza Nascimento',
     title: name.replace(/_/g, ' '),
     styles: { default: { document: { run: { font: FONT, size: SZ, color: INK } } } },
-    numbering: { config: [{ reference: 'ol', levels }] },
+    numbering: { config: olConfigs },
     sections: [{
       properties: { page: { size: { width: PAGE.w, height: PAGE.h }, margin: { top: PAGE.margin, bottom: PAGE.margin, left: PAGE.margin, right: PAGE.margin } } },
-      children: blocks(marked.lexer(md, { gfm: true })),
+      children,
     }],
   });
   const out = resolve(APRES, `${name}.docx`);

@@ -79,7 +79,7 @@ Para cada um, saiba responder: *como funciona? garante o caminho ótimo? usa heu
 - Por que heap e não vetor? Vetor com varredura linear faria extract-min em O(V), degradando o laço para **O(V²)**. O heap mantém O(log V).
 
 ### A métrica `nodesVisited` (definição precisa — muito importante)
-- Conta **apenas nós EXPANDIDOS** = nós **extraídos da lista aberta** no laço principal (extract-min no A\*/Dijkstra/JPS; dequeue no BFS; pop no DFS).
+- Conta **apenas nós EXPANDIDOS** = nós **extraídos da lista aberta** no laço principal (extract-min no A\*/Dijkstra/JPS; dequeue no BFS; pop no DFS-Greedy).
 - **No JPS:** conta só os **jump points** extraídos da fila — **NÃO** as células varridas internamente pela rotina `jump()`. Isso alinha a métrica ao conceito de "nodes expanded" de Harabor & Grastien e torna justa a comparação A\* vs JPS.
 - **Por que isso importa:** se você contasse as varreduras internas, o JPS pareceria pior. A escolha é metodologicamente correta e defensável.
 
@@ -102,29 +102,29 @@ Para cada um, saiba responder: *como funciona? garante o caminho ótimo? usa heu
 ## 6. NÚMEROS-CHAVE (decore os principais — a banca adora pedir)
 
 ### Tabela 1 — Grade 20×20, densidade 0,2
-| Algoritmo | Comprimento | Nós | Tempo (ms) |
+| Algoritmo | Comprimento | Nós expandidos | Tempo (ms) |
 |-----------|-------------|-----|-----------|
 | **A\***     | 39 | 103 | 0,01 |
 | Dijkstra  | 39 | 284 | 0,03 |
 | BFS       | 39 | 284 | 0,02 |
-| DFS       | **45** | 50 | 0,01 |
+| DFS-Greedy | **45** | 50 | 0,01 |
 | **JPS**     | 39 | 66 | 0,02 |
 
 ### Tabela 2 — Grade 20×20, densidade 0,4
-| Algoritmo | Comprimento | Nós | Tempo (ms) |
+| Algoritmo | Comprimento | Nós expandidos | Tempo (ms) |
 |-----------|-------------|-----|-----------|
 | A\*        | 39 | 399 | 0,05 |
 | Dijkstra  | 39 | 399 | 0,05 |
 | BFS       | 39 | 399 | 0,03 |
-| DFS       | 39 | 38 | 0,01 |
+| DFS-Greedy | 39 | 38 | 0,01 |
 | **JPS**     | 39 | **3** | 0,02 |
 
 > 🌟 **O número mais importante do trabalho:** densidade 0,4 → **JPS: 3 nós vs A\*: 399 nós = redução de >99%.**
 
 ### Tabela 3 — 50 NPCs, 20×20, densidade 0,2 (tempo TOTAL das 50 buscas)
-| Algoritmo | Nós (total) | Tempo total (ms) |
+| Algoritmo | Nós expandidos (total) | Tempo total (ms) |
 |-----------|-------------|------------------|
-| DFS       | 2.350  | **0,51** (mais rápido) |
+| DFS-Greedy | 2.350  | **0,51** (mais rápido) |
 | A\*        | 7.100  | 0,95 |
 | BFS       | 14.700 | 0,96 |
 | JPS       | 3.500  | 1,06 |
@@ -137,10 +137,10 @@ Para cada um, saiba responder: *como funciona? garante o caminho ótimo? usa heu
 - Custo escala **linearmente** com nº de NPCs.
 
 ### Números soltos para ter na ponta da língua
-- Orçamento adotado: **16 ms/quadro (60 fps)**. A conta exata é 1000 ÷ 60 ≈ 16,67 ms; arredonda-se para baixo, que é o critério mais exigente (slide de apoio 32).
-- Caminho ótimo na 20×20 = **39 células**; DFS esparso = **45** (15% pior).
+- Orçamento adotado: **16 ms/quadro (60 fps)**. A conta exata é 1000 ÷ 60 ≈ 16,67 ms; arredonda-se para baixo, que é o critério mais exigente (slide de apoio 37).
+- Caminho ótimo na 20×20 = **39 células**; DFS-Greedy em grade esparsa = **45** (15% mais longo).
 - Estimativa inicial do anteprojeto era **50 ms/busca** — revelou-se folgada em **mais de uma ordem de grandeza** (real: centésimos de ms).
-- 40×40 densidade 0,4: A\* visita **1.599** nós, JPS só **3**.
+- 40×40 densidade 0,4: A\* expande **1.599** nós, JPS só **3**.
 
 ---
 

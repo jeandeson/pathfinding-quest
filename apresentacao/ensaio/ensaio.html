@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ensaio cronometrado</title>
+<style>
+  :root {
+    --bg: #f6f4fa; --panel: #ffffff; --ink: #1e143c; --muted: #5a5078; --line: #ddd8ea;
+    --accent: #b00d62; --ok: #167a3e; --warn: #a25a00; --over: #c42c48; --okbg: #e5f4eb; --warnbg: #fdf0d9; --overbg: #fcebee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17122a; --panel: #211a3a; --ink: #f1eefa; --muted: #b3aacd; --line: #3a3160;
+      --accent: #ff7ab8; --ok: #6fd69a; --warn: #f2b65c; --over: #ff8d9f; --okbg: #173524; --warnbg: #3a2c12; --overbg: #40181f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+  h1 { font-size: 18px; margin: 0; }
+  .clock { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+  .clock b { font-size: 34px; line-height: 1; }
+  .clock small { color: var(--muted); }
+  .state-ok b { color: var(--ok); } .state-warn b { color: var(--warn); } .state-over b { color: var(--over); }
+  .bar { flex: 1 1 200px; height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; min-width: 160px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; padding: 20px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .slide img { width: 100%; display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .slide h2 { font-size: 20px; margin: 0 0 10px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .speech p { font-size: 21px; line-height: 1.5; margin: 0 0 14px; text-wrap: pretty; }
+  .cues { color: var(--muted); font-size: 15px; margin-top: 8px; }
+  .cues p { margin: 0 0 6px; }
+  .keys { color: var(--muted); font-size: 14px; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; background: var(--bg); font: 13px Consolas, monospace; }
+  button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.primary { color: #17122a; } }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 14px; }
+  td.num, th.num { text-align: right; }
+  tr.over td { background: var(--overbg); } tr.warn td { background: var(--warnbg); }
+  .tag { display: inline-block; border-radius: 4px; padding: 0 7px; font-size: 13px; font-weight: 600; }
+  .tag.ok { background: var(--okbg); color: var(--ok); } .tag.warn { background: var(--warnbg); color: var(--warn); } .tag.over { background: var(--overbg); color: var(--over); }
+  #end, #start { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
+  .hidden { display: none !important; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ensaio cronometrado</h1>
+  <div class="clock" id="cSlide"><small>slide</small><b>0:00</b><small id="cPlan"></small></div>
+  <div class="clock" id="cTotal"><small>total</small><b>0:00</b><small>de 16:15</small></div>
+  <div class="bar" aria-hidden="true"><i id="prog"></i></div>
+  <span class="keys"><kbd>Espaço</kbd> avança · <kbd>←</kbd> volta · <kbd>P</kbd> pausa</span>
+</header>
+
+<section id="start">
+  <div class="panel">
+    <h2>Antes de começar</h2>
+    <p>Fique em pé, fale em voz alta e use o simulador de verdade no slide 12. A página cronometra cada slide e o total; no fim, mostra onde você passou do planejado e guarda o resultado.</p>
+    <p>As frases em destaque são a fala do roteiro. Não leia: olhe, fale com as suas palavras e avance com <kbd>Espaço</kbd>.</p>
+    <div class="row"><button class="primary" id="go">Começar o ensaio</button><span class="keys">ou aperte <kbd>Espaço</kbd></span></div>
+  </div>
+  <div class="panel" style="margin-top:16px" id="histBox"></div>
+</section>
+
+<main id="stage" class="hidden">
+  <div class="slide">
+    <h2 id="sTitle"></h2>
+    <img id="sImg" alt="">
+  </div>
+  <div>
+    <div class="panel speech" id="sSpeech"></div>
+    <div class="cues" id="sCues"></div>
+    <div class="row"><button id="prev">← Voltar</button><button id="pause">Pausar</button><button class="primary" id="next">Avançar</button></div>
+  </div>
+</main>
+
+<section id="end" class="hidden">
+  <div class="panel">
+    <h2 id="eTitle"></h2>
+    <p id="eSummary"></p>
+    <div class="tablewrap"><table id="eTable"></table></div>
+    <div class="row"><button class="primary" id="again">Ensaiar de novo</button><button id="csv">Baixar este ensaio (CSV)</button></div>
+  </div>
+  <div class="panel" style="margin-top:16px" id="histBox2"></div>
+</section>
+
+<script>
+const SLIDES = [{"n":1,"title":"Capa","plan":35,"img":"../preview/slide_01.png","speech":["\"Bom dia. Sou Jeandeson Nascimento e apresento meu trabalho de conclusão: uma análise comparativa de algoritmos de pathfinding para NPCs em jogos 2D no navegador, orientado pelo professor Gilson Amorim Carvalho.\"","\"São cinco algoritmos e uma pergunta: <b>qual usar em um jogo web, e quanto custa, de verdade, rodar cada um no navegador?</b>\""],"cues":["Transição: \"Vou seguir esta agenda.\""]},{"n":2,"title":"Agenda","plan":20,"img":"../preview/slide_02.png","speech":["\"Cinco blocos: introdução, o referencial dos cinco algoritmos, a metodologia com o simulador que desenvolvi, os resultados dos benchmarks e a conclusão.\""],"cues":["Dica: cada seção abre com um slide divisório."]},{"n":3,"title":"Divisória 01: Introdução","plan":5,"img":"../preview/slide_03.png","speech":["\"Começo pelo problema.\""],"cues":["Não pare aqui: diga a frase e avance."]},{"n":4,"title":"Problema","plan":60,"img":"../preview/slide_04.png","speech":["\"Em jogos de exploração, o movimento inteligente dos NPCs sustenta a experiência. O desenvolvedor independente tem IA pronta em Unity e Phaser, mas a literatura mede pathfinding em C++ e código nativo. No navegador quem executa é o motor V8: compilação JIT, coletor de lixo e um relógio de resolução limitada mudam o custo real.\"","\"A lacuna específica é a comparação A* contra JPS em JavaScript. Daí a pergunta de pesquisa:\" (aponte o cartão e leia)."],"cues":["Transição: \"Para responder, estes foram os objetivos.\""]},{"n":5,"title":"Objetivos","plan":45,"img":"../preview/slide_05.png","speech":["\"O objetivo geral é comparar o desempenho dos cinco algoritmos em um ambiente 2D com obstáculos. Os específicos: <b>estudar</b> os princípios, <b>implementar</b> do zero, <b>disponibilizar</b> o simulador online, <b>avaliar</b> por tempo, nós expandidos, comprimento do caminho e taxa de sucesso, e <b>validar</b> a admissibilidade da heurística de Manhattan.\""],"cues":["<b>[controle: 2:45]</b>"]},{"n":6,"title":"Divisória 02: Referencial Teórico","plan":5,"img":"../preview/slide_06.png","speech":["\"Primeiro, os cinco algoritmos.\""],"cues":[]},{"n":7,"title":"Os 5 algoritmos","plan":60,"img":"../preview/slide_07.png","speech":["\"Dijkstra é a base: ótimo, sem heurística. O BFS explora camada por camada e garante o menor número de passos. O DFS entra na <b>variante adotada, o DFS-Greedy</b>: uma pilha guiada pela distância de Manhattan, rápida, mas sem garantia de caminho ótimo. O A* soma custo real e estimativa. E o JPS é o A* com saltos.\"","\"As cores dos quadradinhos são as mesmas dos gráficos.\""],"cues":["Não leia célula por célula.","Transição: \"Dois deles são o foco: A* e JPS.\""]},{"n":8,"title":"A*","plan":50,"img":"../preview/slide_08.png","speech":["\"O A* concilia o Dijkstra com a busca heurística. A função f(n) soma g(n), o custo real desde a origem, com h(n), a estimativa até o objetivo. Com heurística admissível, que nunca superestima, o caminho é o ótimo. Em grade de quatro direções, a distância de Manhattan cumpre esse papel.\""],"cues":["Transição: \"O JPS parte daí.\""]},{"n":9,"title":"JPS","plan":60,"img":"../preview/slide_09.png","speech":["\"Mesmo mapa, dois algoritmos. O A* expande as nove células do corredor, uma a uma. O JPS salta em linha reta e só para em um <b>ponto de salto</b>: a célula P, onde o fim do obstáculo cria um vizinho forçado. São 2 nós expandidos em vez de 9, e o mesmo caminho.\"","\"O JPS original usa oito direções. Neste trabalho ele foi <b>adaptado para quatro direções</b>.\""],"cues":["<b>[controle: 5:40]</b>"]},{"n":10,"title":"Divisória 03: Metodologia","plan":5,"img":"../preview/slide_10.png","speech":["\"Como medi tudo isso?\""],"cues":[]},{"n":11,"title":"Ambiente de medição","plan":55,"img":"../preview/slide_11.png","speech":["\"Três decisões. Implementação em TypeScript com Canvas 2D nativo, sem framework de jogo e sem biblioteca de pathfinding. Medição em Chrome headless: como o relógio do navegador tem resolução de cerca de 0,1 ms, cada busca é repetida em lote, em dez janelas. E reprodutibilidade: com sementes fixas, nós expandidos e caminhos são idênticos em qualquer máquina; só o tempo depende do hardware.\""],"cues":["Transição: \"O artefato central é o simulador.\""]},{"n":12,"title":"Simulador (demonstração)","plan":150,"img":"../preview/slide_12.png","speech":[],"cues":["Abra o simulador (aba já aberta antes de começar). Faça nesta ordem:","1. No menu, selecione o algoritmo dos NPCs.","2. Inicie o jogo e <b>clique no mapa</b>: o caminho é traçado até o destino.","3. Aperte a tecla <b>D</b>: aparecem a grade e os custos f de cada célula.","4. Troque para o DFS-Greedy (tecla 4 para o jogador, R para os inimigos) e mostre o caminho mais longo.","5. Se houver tempo, volte ao menu e abra o <b>modo benchmark</b>.","<b>Plano B:</b> se a rede falhar, fique no slide 12 (ele mostra as duas telas com os quatro pontos) e diga: \"Tenho uma gravação; sigo pelos slides.\"","Transição: \"Estes foram os cenários medidos.\""]},{"n":13,"title":"Cenários de teste","plan":40,"img":"../preview/slide_13.png","speech":["\"Quatro cenários: densidade de obstáculos em grade 20×20; múltiplos NPCs, com 50 buscas simultâneas; congestionamento, com todos convergindo para um corredor central em grade 30×30; e objetivos dinâmicos em grade 40×40. Em todos, as mesmas quatro métricas.\""],"cues":["<b>[controle: 9:50]</b>"]},{"n":14,"title":"Divisória 04: Resultados","plan":5,"img":"../preview/slide_14.png","speech":["\"Aos resultados.\""],"cues":[]},{"n":15,"title":"Nós expandidos","plan":65,"img":"../preview/slide_15.png","speech":["\"O resultado mais marcante. Em grade 20×20 com densidade 0,4, A*, Dijkstra e BFS expandem 399 nós. O JPS, <b>três</b>. Redução de 99,2%.\" (pausa)","\"Obstáculos densos criam vizinhos forçados, e poucos pontos de salto ligam origem e destino. O caminho continua ótimo: 39 células, igual ao do A*.\""],"cues":["Transição: \"E quando são muitos NPCs ao mesmo tempo?\""]},{"n":16,"title":"Escalabilidade","plan":55,"img":"../preview/slide_16.png","speech":["\"Corredor 30×30, de 5 a 50 NPCs convergindo para o mesmo gargalo. O gráfico mostra o A*, o JPS e o limite de 16 ms por quadro. O tempo cresce em linha reta, porque cada NPC faz uma busca independente. Com 50 NPCs, o A* usa 1,28 ms: 8% do quadro. Mesmo o mais lento, o Dijkstra, fica em 2,05 ms.\""],"cues":["Transição: \"Na grade 20×20, com os cinco lado a lado:\""]},{"n":17,"title":"50 NPCs simultâneos","plan":50,"img":"../preview/slide_17.png","speech":["\"Cinquenta buscas no mesmo quadro, e todos terminam em menos de 2 ms. No pior caso, 10% do orçamento de 16 ms por quadro. Nestas escalas, a taxa de quadros não decide a escolha do algoritmo.\"","\"Repare que o JPS não é o mais rápido aqui.\""],"cues":["Transição: \"É o que o próximo slide explica.\""]},{"n":18,"title":"Trade-offs","plan":60,"img":"../preview/slide_18.png","speech":["\"Lendo por linha. O A* tem caminho ótimo e bom tempo. O JPS expande metade dos nós do A*, 3.500 contra 7.100, e ainda assim é mais lento: nesta grade pequena e esparsa, as sondagens de cada salto custam mais do que os nós poupados. O DFS-Greedy é o mais rápido, 0,51 ms, mas o caminho tem 45 células contra 39: 15% mais longo.\"","\"Nenhum vence em tudo. A escolha depende do gargalo.\""],"cues":["<b>[controle: 13:45]</b>"]},{"n":19,"title":"Divisória 05: Conclusão","plan":5,"img":"../preview/slide_19.png","speech":["\"Concluindo.\""],"cues":[]},{"n":20,"title":"Conclusões","plan":70,"img":"../preview/slide_20.png","speech":["\"Quatro respostas. <b>Um:</b> o orçamento de 16 ms por quadro é atendido com folga; a estimativa inicial de 50 ms por busca era folgada em mais de uma ordem de grandeza. <b>Dois:</b> o JPS confirma a vantagem em nós expandidos, acima de 99% em grades densas. <b>Três:</b> o A* segue como a referência de equilíbrio. <b>Quatro:</b> o DFS-Greedy é o mais rápido, mas não garante o caminho ótimo.\"","\"Em uma frase: <b>nas escalas testadas, o gargalo não é a taxa de quadros; são os nós expandidos e a qualidade do caminho que decidem.</b>\""],"cues":[]},{"n":21,"title":"Limitações e futuro","plan":55,"img":"../preview/slide_21.png","speech":["\"Três limitações, cada uma com a saída. Sem verificação prévia de conectividade, um destino isolado provoca busca exaustiva: basta checar antes. O A* não tem memória: a cada mudança no mapa refaz a busca inteira; o D* Lite replaneja só o que mudou. E o custo cresce com agentes e mapa: HPA* e amortização entre quadros.\"","\"Além disso, os tempos vêm de um único hardware.\""],"cues":["A última frase não está no slide: diga de memória."]},{"n":22,"title":"Obrigado + QR codes","plan":20,"img":"../preview/slide_22.png","speech":["\"Obrigado pela atenção. O simulador e o código estão nos QR codes: é só apontar a câmera. Fico à disposição da banca.\""],"cues":["Deixe este slide na tela durante a arguição."]}];
+const TOTAL = 975;
+const KEY = 'tcc-ensaios-v1';
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const now = () => performance.now() / 1000;
+
+let i = 0, spent = [], t0 = 0, running = false, timer = null;
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
+function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+
+function current() { return spent[i] + (running ? now() - t0 : 0); }
+function totalNow() { return spent.reduce((a, b) => a + b, 0) + (running ? now() - t0 : 0); }
+function stateOf(used, plan) { return used > plan * 1.25 + 3 ? 'over' : used > plan ? 'warn' : 'ok'; }
+
+function tick() {
+  const s = SLIDES[i], used = current(), tot = totalNow();
+  $('cSlide').className = 'clock state-' + stateOf(used, s.plan);
+  $('cSlide').querySelector('b').textContent = fmt(used);
+  $('cTotal').className = 'clock state-' + stateOf(tot, TOTAL);
+  $('cTotal').querySelector('b').textContent = fmt(tot);
+  $('prog').style.width = Math.min(100, tot / TOTAL * 100) + '%';
+}
+
+function show() {
+  const s = SLIDES[i];
+  $('sTitle').textContent = 'Slide ' + s.n + ' de ' + SLIDES.length + ' — ' + s.title;
+  $('sImg').src = s.img; $('sImg').alt = 'Slide ' + s.n + ': ' + s.title;
+  $('cPlan').textContent = 'de ' + fmt(s.plan);
+  $('sSpeech').innerHTML = s.speech.length ? s.speech.map(p => '<p>' + p + '</p>').join('') : '<p>(sem fala fixa: siga as instruções abaixo)</p>';
+  $('sCues').innerHTML = s.cues.map(p => '<p>' + p + '</p>').join('');
+  $('next').textContent = i === SLIDES.length - 1 ? 'Terminar' : 'Avançar';
+  tick();
+}
+
+function start() {
+  i = 0; spent = SLIDES.map(() => 0); running = true; t0 = now();
+  $('start').classList.add('hidden'); $('end').classList.add('hidden'); $('stage').classList.remove('hidden');
+  $('pause').textContent = 'Pausar';
+  clearInterval(timer); timer = setInterval(tick, 200);
+  show();
+}
+function bank() { if (running) { spent[i] += now() - t0; t0 = now(); } }
+function next() { bank(); if (i < SLIDES.length - 1) { i++; show(); } else finish(); }
+function prev() { bank(); if (i > 0) { i--; show(); } }
+function pause() { if (running) { bank(); running = false; } else { running = true; t0 = now(); } $('pause').textContent = running ? 'Pausar' : 'Continuar'; tick(); }
+
+function finish() {
+  bank(); running = false; clearInterval(timer);
+  const tot = spent.reduce((a, b) => a + b, 0);
+  const over = SLIDES.filter((s, k) => spent[k] > s.plan).map(s => s.n);
+  const list = load();
+  list.push({ when: new Date().toISOString(), total: Math.round(tot), spent: spent.map(x => Math.round(x)), over });
+  const kept = save(list);
+  $('stage').classList.add('hidden'); $('end').classList.remove('hidden');
+  $('eTitle').textContent = 'Ensaio ' + list.length + ': ' + fmt(tot) + ' (planejado ' + fmt(TOTAL) + ')';
+  const diff = tot - TOTAL;
+  $('eSummary').textContent = (tot <= 15 * 60 ? 'Cabe em 15 minutos. ' : tot <= 20 * 60 ? 'Passa de 15 minutos, mas cabe em 20. ' : 'Passa de 20 minutos: precisa cortar. ')
+    + (Math.abs(diff) < 5 ? 'No tempo planejado.' : diff > 0 ? fmt(diff) + ' acima do planejado.' : fmt(-diff) + ' abaixo do planejado.')
+    + (over.length ? ' Acima da meta nos slides: ' + over.join(', ') + '.' : ' Nenhum slide passou da meta.')
+    + (kept ? '' : ' (O navegador não deixou guardar o histórico: baixe o CSV.)');
+  $('eTable').innerHTML = '<tr><th>Slide</th><th>Título</th><th class="num">Planejado</th><th class="num">Realizado</th><th class="num">Diferença</th><th></th></tr>'
+    + SLIDES.map((s, k) => { const d = spent[k] - s.plan, st = stateOf(spent[k], s.plan);
+        return '<tr class="' + (st === 'ok' ? '' : st) + '"><td>' + s.n + '</td><td>' + s.title + '</td><td class="num">' + fmt(s.plan) + '</td><td class="num">' + fmt(spent[k]) + '</td><td class="num">' + (d >= 0 ? '+' : '−') + fmt(Math.abs(d)) + '</td><td><span class="tag ' + st + '">' + (st === 'ok' ? 'dentro' : st === 'warn' ? 'acima' : 'bem acima') + '</span></td></tr>'; }).join('')
+    + '<tr><th></th><th>Total</th><th class="num">' + fmt(TOTAL) + '</th><th class="num">' + fmt(tot) + '</th><th class="num">' + (diff >= 0 ? '+' : '−') + fmt(Math.abs(diff)) + '</th><th></th></tr>';
+  history();
+  window.scrollTo(0, 0);
+}
+
+function history() {
+  const list = load();
+  const html = '<h2>Ensaios guardados neste navegador</h2>' + (list.length
+    ? '<div class="tablewrap"><table><tr><th>Ensaio</th><th>Data</th><th class="num">Tempo total</th><th>Slides acima da meta</th></tr>'
+      + list.map((e, k) => '<tr><td>' + (k + 1) + '</td><td>' + new Date(e.when).toLocaleString('pt-BR') + '</td><td class="num">' + fmt(e.total) + '</td><td>' + (e.over.length ? e.over.join(', ') : 'nenhum') + '</td></tr>').join('')
+      + '</table></div><p class="keys">Copie estes totais para a tabela de ensaios do roteiro. A devolutiva pede o ensaio cronometrado; o combinado são três.</p><div class="row"><button id="clear">Apagar o histórico</button></div>'
+    : '<p class="keys">Nenhum ensaio ainda. Ao terminar o primeiro, ele aparece aqui.</p>');
+  for (const id of ['histBox', 'histBox2']) $(id).innerHTML = html;
+  document.querySelectorAll('#clear').forEach(b => b.onclick = () => { if (confirm('Apagar todos os ensaios guardados?')) { save([]); history(); } });
+}
+
+function csv() {
+  const rows = [['slide', 'titulo', 'planejado_s', 'realizado_s', 'diferenca_s']].concat(SLIDES.map((s, k) => [s.n, '"' + s.title.replace(/"/g, '""') + '"', s.plan, Math.round(spent[k]), Math.round(spent[k] - s.plan)]));
+  const blob = new Blob(['\uFEFF' + rows.map(r => r.join(';')).join('\r\n')], { type: 'text/csv' });
+  const d = new Date(), two = (v) => String(v).padStart(2, '0');
+  const stamp = d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + '_' + two(d.getHours()) + 'h' + two(d.getMinutes());
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ensaio_' + stamp + '.csv'; a.click();
+}
+
+$('go').onclick = start; $('again').onclick = start; $('next').onclick = next; $('prev').onclick = prev; $('pause').onclick = pause; $('csv').onclick = csv;
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) return;      // o botão focado já trata a tecla
+  const staged = !$('stage').classList.contains('hidden');
+  if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); staged ? next() : ($('start').classList.contains('hidden') ? null : start()); }
+  else if (staged && (e.key === 'ArrowLeft' || e.key === 'PageUp')) { e.preventDefault(); prev(); }
+  else if (staged && (e.key === 'p' || e.key === 'P')) pause();
+});
+history();
+</script>
+</body>
+</html>

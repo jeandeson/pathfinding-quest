@@ -1,5 +1,6 @@
 # Reconstroi a apresentacao inteira a partir do CSV, em uma unica chamada:
 #   CSV -> dados -> graficos -> QR codes -> .pptx -> previews -> auditorias
+#   (fontes por classe, QR codes sob degradacao, roteiro x deck) -> pagina do ensaio
 #
 # Uso (na pasta apresentacao/tools):
 #   powershell -ExecutionPolicy Bypass -File build_all.ps1            # usa as capturas ja salvas
@@ -26,7 +27,10 @@ try {
     Step 'apresentacao (.pptx)'                        { powershell -NoProfile -ExecutionPolicy Bypass -File build_from_template.ps1 }
     Step 'previews (PNG)'                              { powershell -NoProfile -ExecutionPolicy Bypass -File export_previews.ps1 }
     Step 'auditoria de legibilidade'                   { powershell -NoProfile -ExecutionPolicy Bypass -File audit_deck.ps1 }
-    Step 'QR codes legiveis no slide final'            { node make_qr.mjs --check ..\preview\slide_17.png }
+    Step 'QR codes legiveis no slide final'            { node make_qr.mjs --check ..\preview\slide_22.png }
+    Step 'QR codes sob degradacao (2 leitores)'        { node qr_stress.mjs ..\preview\slide_22.png }
+    Step 'roteiro x deck (numeros e titulos)'          { node verify_roteiro.mjs }
+    Step 'pagina do ensaio cronometrado'               { node build_ensaio.mjs }
     Write-Host ""
     Write-Host "OK: apresentacao reconstruida e conferida." -ForegroundColor Green
 } finally {
