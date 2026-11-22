@@ -5,9 +5,9 @@
 // Se uma linha esperada faltar no CSV, o script FALHA (não emite dado errado).
 //
 // Mapa gráfico → tabela do TCC:
-//   chartA  nós visitados, grade 20×20, densidades 0,2 e 0,4   (Tab. 1 e 2)
-//   chartB  tempo médio × NPCs, congestionamento 30×30 d0,2    (Tab. 4)
-//   chartC  tempo médio 50 NPCs, congestionamento 30×30 d0,2   (Tab. 4)
+//   chartA  nós expandidos, grade 20×20, densidades 0,2 e 0,4  (Tab. 1 e 2)
+//   chartB  tempo médio × NPCs, congestionamento 30×30 d0,2    (Tab. 5)
+//   chartC  tempo médio 50 NPCs, congestionamento 30×30 d0,2   (Tab. 5)
 //   chartD  tempo total 50 NPCs, escalabilidade 20×20 d0,2      (Tab. 3)
 // ─────────────────────────────────────────────────────────────────────────────
 

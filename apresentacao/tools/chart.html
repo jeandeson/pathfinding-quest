@@ -62,6 +62,10 @@ const COLORS = {
   'JPS':      { bg: '#E040A0', border: '#E040A0' },
 };
 const ALGOS = ['A*', 'Dijkstra', 'BFS', 'DFS', 'JPS'];
+// Nome de exibição padronizado: a chave do CSV segue 'DFS'; o rótulo é a variante adotada.
+const LABEL  = (a) => (a === 'DFS' ? 'DFS-Greedy' : a);
+const LABELS = ALGOS.map(LABEL);
+const BUDGET = `${CD.meta.frameBudgetMs} ms/quadro (${CD.meta.fps} fps)`;
 
 // ─── Common Chart.js theming ────────────────────────────────────────────────
 Chart.defaults.color = T.text;
@@ -137,13 +141,13 @@ Chart.register(valuePlugin);
 // ─── Charts ──────────────────────────────────────────────────────────────────
 
 function chartA() {
-  document.getElementById('title').textContent = 'Nós visitados por algoritmo · Grade 20×20';
+  document.getElementById('title').textContent = 'Nós expandidos por algoritmo · Grade 20×20';
   document.getElementById('subtitle').textContent = 'Impacto da densidade de obstáculos — JPS reduz mais de 99% dos nós em alta densidade';
   document.getElementById('footnote').textContent = 'Fonte: Tabelas 1 e 2 do TCC';
   return new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
-      labels: ALGOS,
+      labels: LABELS,
       datasets: [
         { label: 'Densidade 0,2', data: CD.chartA.d02, backgroundColor: 'rgba(136,170,255,0.85)', borderColor: '#88AAFF', borderWidth: 0, borderRadius: 6, barPercentage: 0.85, categoryPercentage: 0.7 },
         { label: 'Densidade 0,4', data: CD.chartA.d04, backgroundColor: 'rgba(224,64,160,0.85)', borderColor: '#E040A0', borderWidth: 0, borderRadius: 6, barPercentage: 0.85, categoryPercentage: 0.7 },
@@ -151,7 +155,7 @@ function chartA() {
     },
     options: commonOptions({
       plugins: { valuePlugin: { format: v => v.toString() } },
-      y: { title: { display: true, text: 'Nós visitados', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true },
+      y: { title: { display: true, text: 'Nós expandidos', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true },
       x: { title: { display: false } },
     }),
   });
@@ -160,7 +164,7 @@ function chartA() {
 function chartB() {
   document.getElementById('title').textContent = 'Escalabilidade — Tempo médio vs Número de NPCs';
   document.getElementById('subtitle').textContent = 'Grade 30×30, densidade 0,2 — corredor central forçado';
-  document.getElementById('footnote').textContent = 'Fonte: Tabela 4 do TCC · linha 16 ms = orçamento de 1 frame a 60 fps';
+  document.getElementById('footnote').textContent = `Fonte: Tabela 5 do TCC · linha tracejada = ${BUDGET}`;
 
   const npcs = CD.chartB.npcs;
   const data = CD.chartB.series;
@@ -170,7 +174,7 @@ function chartB() {
     data: {
       labels: npcs,
       datasets: ALGOS.map(a => ({
-        label: a,
+        label: LABEL(a),
         data: data[a],
         borderColor: COLORS[a].border,
         backgroundColor: COLORS[a].bg + '33',
@@ -221,19 +225,19 @@ Chart.register(hLinePlugin);
 
 function chartBWithRef() {
   const c = chartB();
-  c.options.plugins.hLine = { value: 16, color: T.ref, label: '16 ms · orçamento de 1 frame (60 fps)', align: 'left' };
+  c.options.plugins.hLine = { value: 16, color: T.ref, label: BUDGET, align: 'left' };
   c.update();
   return c;
 }
 
 function chartC() {
   document.getElementById('title').textContent = 'Tempo total médio com 50 NPCs — gargalo no corredor';
-  document.getElementById('subtitle').textContent = 'Grade 30×30, densidade 0,2 — todos permanecem bem abaixo do orçamento de 16 ms';
-  document.getElementById('footnote').textContent = 'Fonte: Tabela 4 do TCC · linha 16 ms = orçamento de 1 frame a 60 fps';
+  document.getElementById('subtitle').textContent = `Grade 30×30, densidade 0,2 — todos permanecem bem abaixo de ${BUDGET}`;
+  document.getElementById('footnote').textContent = `Fonte: Tabela 5 do TCC · linha tracejada = ${BUDGET}`;
   return new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
-      labels: ALGOS,
+      labels: LABELS,
       datasets: [{
         label: 'Tempo médio (ms) — 50 NPCs',
         data: CD.chartC.values,
@@ -249,7 +253,7 @@ function chartC() {
       plugins: {
         valuePlugin: { format: v => brfmt(v) + ' ms' },
         legend: { display: false },
-        hLine: { value: 16, color: T.ref, label: '16 ms · 60 fps' },
+        hLine: { value: 16, color: T.ref, label: BUDGET },
       },
       y: { title: { display: true, text: 'Tempo médio (ms)', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true, suggestedMax: 18 },
       x: { ticks: { font: { size: 18, weight: '600' } } },
@@ -264,7 +268,7 @@ function chartD() {
   return new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
-      labels: ALGOS,
+      labels: LABELS,
       datasets: [{
         label: 'Tempo total (ms)',
         data: CD.chartD.values,
@@ -280,7 +284,7 @@ function chartD() {
       plugins: {
         valuePlugin: { format: v => brfmt(v) + ' ms' },
         legend: { display: false },
-        hLine: { value: 16, color: T.ref, label: '16 ms · 60 fps' },
+        hLine: { value: 16, color: T.ref, label: BUDGET },
       },
       y: { title: { display: true, text: 'Tempo total médio (ms)', color: T.text, font: { size: 16, weight: '600' } }, beginAtZero: true },
       x: { ticks: { font: { size: 18, weight: '600' } } },

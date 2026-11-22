@@ -53,6 +53,9 @@ const clean = (s) => s
 const toInt   = (s) => Number(clean(s).replace(/\./g, '').replace(/\s/g, '')); // ponto = milhar
 const toFloat = (s) => Number(clean(s).replace(/\./g, '').replace(',', '.'));   // vírgula = decimal
 const ALGOS = ['A*', 'Dijkstra', 'BFS', 'DFS', 'JPS'];
+// Rótulo padronizado no artigo → chave do CSV. O DFS aparece nas tabelas como
+// "DFS-Greedy" (variante adotada); o rótulo antigo "DFS" passa a ser divergência.
+const CSV_NAME = { 'DFS-Greedy': 'DFS' };
 
 // ── Config por tabela (label → como ler linhas + filtro CSV) ───────────────────
 const TABLES = {
@@ -100,7 +103,9 @@ for (const block of blocks) {
 
   for (const raw of rawRows) {
     const cells = raw.split('&').map(c => c.trim());
-    const algo = clean(cells[0] || '');
+    const shown = clean(cells[0] || '');
+    if (shown === 'DFS') { console.log(`  ✗ ${label}: linha rotulada "DFS" — o padrão é "DFS-Greedy"`); fail++; }
+    const algo = CSV_NAME[shown] || shown;
     if (!ALGOS.includes(algo)) continue; // pula \hline, cabeçalho, \multicolumn
 
     // monta objeto da linha conforme cols
