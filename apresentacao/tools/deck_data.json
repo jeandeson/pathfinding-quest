@@ -1,0 +1,630 @@
+{
+  "meta": {
+    "frameMs": 16,
+    "fps": 60,
+    "source": "benchmark_results.csv",
+    "budgetF": "16 ms/quadro (60 fps)"
+  },
+  "algos": [
+    {
+      "key": "astar",
+      "csv": "A*",
+      "label": "A*"
+    },
+    {
+      "key": "dijkstra",
+      "csv": "Dijkstra",
+      "label": "Dijkstra"
+    },
+    {
+      "key": "bfs",
+      "csv": "BFS",
+      "label": "BFS"
+    },
+    {
+      "key": "dfs",
+      "csv": "DFS",
+      "label": "DFS-Greedy"
+    },
+    {
+      "key": "jps",
+      "csv": "JPS",
+      "label": "JPS"
+    }
+  ],
+  "dens20": {
+    "d02": {
+      "astar": {
+        "path": 39,
+        "nodes": 103,
+        "time": 0.012,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "103",
+        "timeF": "0,01"
+      },
+      "dijkstra": {
+        "path": 39,
+        "nodes": 284,
+        "time": 0.033,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "284",
+        "timeF": "0,03"
+      },
+      "bfs": {
+        "path": 39,
+        "nodes": 284,
+        "time": 0.02,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "284",
+        "timeF": "0,02"
+      },
+      "dfs": {
+        "path": 45,
+        "nodes": 50,
+        "time": 0.01,
+        "ok": true,
+        "pathF": "45",
+        "nodesF": "50",
+        "timeF": "0,01"
+      },
+      "jps": {
+        "path": 39,
+        "nodes": 66,
+        "time": 0.016,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "66",
+        "timeF": "0,02"
+      }
+    },
+    "d04": {
+      "astar": {
+        "path": 39,
+        "nodes": 399,
+        "time": 0.049,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "399",
+        "timeF": "0,05"
+      },
+      "dijkstra": {
+        "path": 39,
+        "nodes": 399,
+        "time": 0.047,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "399",
+        "timeF": "0,05"
+      },
+      "bfs": {
+        "path": 39,
+        "nodes": 399,
+        "time": 0.028,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "399",
+        "timeF": "0,03"
+      },
+      "dfs": {
+        "path": 39,
+        "nodes": 38,
+        "time": 0.009,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "38",
+        "timeF": "0,01"
+      },
+      "jps": {
+        "path": 39,
+        "nodes": 3,
+        "time": 0.015,
+        "ok": true,
+        "pathF": "39",
+        "nodesF": "3",
+        "timeF": "0,02"
+      }
+    }
+  },
+  "dens40": {
+    "d02": {
+      "astar": {
+        "path": 79,
+        "nodes": 487,
+        "time": 0.068,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "487",
+        "timeF": "0,07"
+      },
+      "dijkstra": {
+        "path": 79,
+        "nodes": 1140,
+        "time": 0.184,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "1.140",
+        "timeF": "0,18"
+      },
+      "bfs": {
+        "path": 79,
+        "nodes": 1140,
+        "time": 0.09,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "1.140",
+        "timeF": "0,09"
+      },
+      "dfs": {
+        "path": 87,
+        "nodes": 165,
+        "time": 0.033,
+        "ok": true,
+        "pathF": "87",
+        "nodesF": "165",
+        "timeF": "0,03"
+      },
+      "jps": {
+        "path": 79,
+        "nodes": 330,
+        "time": 0.099,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "330",
+        "timeF": "0,10"
+      }
+    },
+    "d04": {
+      "astar": {
+        "path": 79,
+        "nodes": 1599,
+        "time": 0.243,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "1.599",
+        "timeF": "0,24"
+      },
+      "dijkstra": {
+        "path": 79,
+        "nodes": 1599,
+        "time": 0.25,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "1.599",
+        "timeF": "0,25"
+      },
+      "bfs": {
+        "path": 79,
+        "nodes": 1599,
+        "time": 0.124,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "1.599",
+        "timeF": "0,12"
+      },
+      "dfs": {
+        "path": 79,
+        "nodes": 78,
+        "time": 0.02,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "78",
+        "timeF": "0,02"
+      },
+      "jps": {
+        "path": 79,
+        "nodes": 3,
+        "time": 0.06,
+        "ok": true,
+        "pathF": "79",
+        "nodesF": "3",
+        "timeF": "0,06"
+      }
+    }
+  },
+  "esc50": {
+    "astar": {
+      "path": 39,
+      "nodes": 7100,
+      "time": 0.945,
+      "ok": true,
+      "pathF": "39",
+      "nodesF": "7.100",
+      "timeF": "0,95"
+    },
+    "dijkstra": {
+      "path": 39,
+      "nodes": 14700,
+      "time": 1.622,
+      "ok": true,
+      "pathF": "39",
+      "nodesF": "14.700",
+      "timeF": "1,62"
+    },
+    "bfs": {
+      "path": 39,
+      "nodes": 14700,
+      "time": 0.962,
+      "ok": true,
+      "pathF": "39",
+      "nodesF": "14.700",
+      "timeF": "0,96"
+    },
+    "dfs": {
+      "path": 45,
+      "nodes": 2350,
+      "time": 0.513,
+      "ok": true,
+      "pathF": "45",
+      "nodesF": "2.350",
+      "timeF": "0,51"
+    },
+    "jps": {
+      "path": 39,
+      "nodes": 3500,
+      "time": 1.064,
+      "ok": true,
+      "pathF": "39",
+      "nodesF": "3.500",
+      "timeF": "1,06"
+    }
+  },
+  "cong": {
+    "n1": {
+      "astar": {
+        "path": 46,
+        "nodes": 200,
+        "time": 0.024,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "200",
+        "timeF": "0,02"
+      },
+      "dijkstra": {
+        "path": 46,
+        "nodes": 375,
+        "time": 0.042,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "375",
+        "timeF": "0,04"
+      },
+      "bfs": {
+        "path": 46,
+        "nodes": 375,
+        "time": 0.025,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "375",
+        "timeF": "0,03"
+      },
+      "dfs": {
+        "path": 46,
+        "nodes": 75,
+        "time": 0.014,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "75",
+        "timeF": "0,01"
+      },
+      "jps": {
+        "path": 46,
+        "nodes": 127,
+        "time": 0.034,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "127",
+        "timeF": "0,03"
+      }
+    },
+    "n5": {
+      "astar": {
+        "path": 46,
+        "nodes": 1000,
+        "time": 0.122,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "1.000",
+        "timeF": "0,12"
+      },
+      "dijkstra": {
+        "path": 46,
+        "nodes": 1875,
+        "time": 0.206,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "1.875",
+        "timeF": "0,21"
+      },
+      "bfs": {
+        "path": 46,
+        "nodes": 1875,
+        "time": 0.125,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "1.875",
+        "timeF": "0,13"
+      },
+      "dfs": {
+        "path": 46,
+        "nodes": 375,
+        "time": 0.072,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "375",
+        "timeF": "0,07"
+      },
+      "jps": {
+        "path": 46,
+        "nodes": 635,
+        "time": 0.169,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "635",
+        "timeF": "0,17"
+      }
+    },
+    "n10": {
+      "astar": {
+        "path": 46,
+        "nodes": 2000,
+        "time": 0.244,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "2.000",
+        "timeF": "0,24"
+      },
+      "dijkstra": {
+        "path": 46,
+        "nodes": 3750,
+        "time": 0.422,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "3.750",
+        "timeF": "0,42"
+      },
+      "bfs": {
+        "path": 46,
+        "nodes": 3750,
+        "time": 0.251,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "3.750",
+        "timeF": "0,25"
+      },
+      "dfs": {
+        "path": 46,
+        "nodes": 750,
+        "time": 0.143,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "750",
+        "timeF": "0,14"
+      },
+      "jps": {
+        "path": 46,
+        "nodes": 1270,
+        "time": 0.338,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "1.270",
+        "timeF": "0,34"
+      }
+    },
+    "n20": {
+      "astar": {
+        "path": 46,
+        "nodes": 4000,
+        "time": 0.478,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "4.000",
+        "timeF": "0,48"
+      },
+      "dijkstra": {
+        "path": 46,
+        "nodes": 7500,
+        "time": 0.815,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "7.500",
+        "timeF": "0,82"
+      },
+      "bfs": {
+        "path": 46,
+        "nodes": 7500,
+        "time": 0.502,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "7.500",
+        "timeF": "0,50"
+      },
+      "dfs": {
+        "path": 46,
+        "nodes": 1500,
+        "time": 0.285,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "1.500",
+        "timeF": "0,28"
+      },
+      "jps": {
+        "path": 46,
+        "nodes": 2540,
+        "time": 0.678,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "2.540",
+        "timeF": "0,68"
+      }
+    },
+    "n50": {
+      "astar": {
+        "path": 46,
+        "nodes": 10000,
+        "time": 1.281,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "10.000",
+        "timeF": "1,28"
+      },
+      "dijkstra": {
+        "path": 46,
+        "nodes": 18750,
+        "time": 2.053,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "18.750",
+        "timeF": "2,05"
+      },
+      "bfs": {
+        "path": 46,
+        "nodes": 18750,
+        "time": 1.25,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "18.750",
+        "timeF": "1,25"
+      },
+      "dfs": {
+        "path": 46,
+        "nodes": 3750,
+        "time": 0.707,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "3.750",
+        "timeF": "0,71"
+      },
+      "jps": {
+        "path": 46,
+        "nodes": 6350,
+        "time": 1.705,
+        "ok": true,
+        "pathF": "46",
+        "nodesF": "6.350",
+        "timeF": "1,71"
+      }
+    }
+  },
+  "dyn": {
+    "astar": {
+      "e1": {
+        "path": 81,
+        "nodes": 408,
+        "time": 0.054,
+        "ok": true,
+        "pathF": "81",
+        "nodesF": "408",
+        "timeF": "0,05"
+      },
+      "e2": {
+        "path": 0,
+        "nodes": 1051,
+        "time": 0.183,
+        "ok": false,
+        "pathF": "sem caminho",
+        "nodesF": "1.051",
+        "timeF": "0,18"
+      },
+      "e3": {
+        "path": 59,
+        "nodes": 335,
+        "time": 0.043,
+        "ok": true,
+        "pathF": "59",
+        "nodesF": "335",
+        "timeF": "0,04"
+      }
+    },
+    "dijkstra": {
+      "e1": {
+        "path": 81,
+        "nodes": 1050,
+        "time": 0.167,
+        "ok": true,
+        "pathF": "81",
+        "nodesF": "1.050",
+        "timeF": "0,17"
+      },
+      "e2": {
+        "path": 0,
+        "nodes": 1051,
+        "time": 0.165,
+        "ok": false,
+        "pathF": "sem caminho",
+        "nodesF": "1.051",
+        "timeF": "0,17"
+      },
+      "e3": {
+        "path": 59,
+        "nodes": 774,
+        "time": 0.11,
+        "ok": true,
+        "pathF": "59",
+        "nodesF": "774",
+        "timeF": "0,11"
+      }
+    },
+    "jps": {
+      "e1": {
+        "path": 81,
+        "nodes": 266,
+        "time": 0.069,
+        "ok": true,
+        "pathF": "81",
+        "nodesF": "266",
+        "timeF": "0,07"
+      },
+      "e2": {
+        "path": 0,
+        "nodes": 708,
+        "time": 0.226,
+        "ok": false,
+        "pathF": "sem caminho",
+        "nodesF": "708",
+        "timeF": "0,23"
+      },
+      "e3": {
+        "path": 59,
+        "nodes": 216,
+        "time": 0.045,
+        "ok": true,
+        "pathF": "59",
+        "nodesF": "216",
+        "timeF": "0,05"
+      }
+    }
+  },
+  "dynGoals": {
+    "e1": "(39,39)",
+    "e2": "(20,20)",
+    "e3": "(5,35)"
+  },
+  "derived": {
+    "jpsCut04F": "99,2",
+    "jpsCut04IntF": "99",
+    "jpsCut02F": "36",
+    "dfsExtraPathF": "15",
+    "optPathF": "39",
+    "dfsPathF": "45",
+    "astarCong50PctF": "8",
+    "worstCong50": {
+      "label": "Dijkstra",
+      "timeF": "2,05",
+      "pctF": "13"
+    },
+    "worstEsc50": {
+      "label": "Dijkstra",
+      "timeF": "1,62",
+      "pctF": "10"
+    },
+    "projMsF": "12",
+    "jpsSpeedup40F": "4",
+    "replansPerSecF": "3.000",
+    "frameExactF": "16,67",
+    "stdSingleF": "0,01",
+    "stdMultiF": "0,07"
+  }
+}

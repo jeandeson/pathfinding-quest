@@ -1,551 +1,1001 @@
-﻿# Builds the TCC presentation by cloning slides from template_unijorge_v1.pptx
-# via PowerPoint COM. This preserves the template's gradients, fonts and logo
-# exactly. Each new slide is a duplicate of one of 4 template slides
-# (cover / section / content / thanks), then its text and images are replaced.
-
-Add-Type -AssemblyName System.Drawing
+﻿# Constrói a apresentação do TCC clonando slides de template_unijorge_v1.pptx via
+# PowerPoint COM (preserva gradientes, fontes e logo do template institucional).
+#
+# Versão pós-devolutiva de 18/09/2026 — o que mudou e por quê:
+#   • Fontes: título 36 pt, mensagem e corpo 24–28 pt, tabelas/rótulos 20–22 pt,
+#     notas 18 pt. NENHUM texto abaixo de 18 pt (conferido por audit_deck.ps1).
+#   • Uma ideia por slide: 17 slides principais + slides de apoio (backup).
+#   • Termos padronizados: "DFS-Greedy (variante adotada)", "nós expandidos",
+#     "16 ms/quadro (60 fps)".
+#   • Gráficos claros, com rótulos diretos (slide_charts.html).
+#   • Slide do simulador com callouts; slide final com QR codes.
+#   • Todo número vem de deck_data.json (gerado do benchmark_results.csv).
+#
+# Pré-requisitos (nesta ordem, na pasta tools):
+#   node build_chart_data.mjs ; node build_deck_data.mjs
+#   node render_slide_charts.mjs ; node make_qr.mjs ; node capture_slides.mjs
+# Uso: powershell -ExecutionPolicy Bypass -File build_from_template.ps1
+#
+# ATENÇÃO: este arquivo precisa ficar em UTF-8 COM BOM (PowerShell 5.1).
 
 $ErrorActionPreference = 'Stop'
-$root      = "C:\Users\Jeandeson Nascimento\Desktop\TCC pathfinding"
-$tmpl      = Join-Path $root 'template_unijorge_v1.pptx'
-$workCopy  = Join-Path $root 'apresentacao\_template_work.pptx'
-$outFinal  = Join-Path $root 'apresentacao\TCC_Apresentacao_Jeandeson.pptx'
-$assets    = Join-Path $root 'apresentacao\assets'
-$charts    = Join-Path $root 'apresentacao\charts'
+$tools     = $PSScriptRoot
+$apres     = Split-Path -Parent $tools
+$root      = Split-Path -Parent $apres
+$tmpl      = Join-Path $root  'template_unijorge_v1.pptx'
+$workCopy  = Join-Path $apres '_template_work.pptx'
+$outFinal  = Join-Path $apres 'TCC_Apresentacao_Jeandeson.pptx'
+$assets    = Join-Path $apres 'assets'
+$charts    = Join-Path $apres 'charts'
+
+foreach ($need in @(
+    $tmpl, (Join-Path $tools 'deck_data.json'),
+    (Join-Path $charts 'slide_nodes.png'), (Join-Path $charts 'slide_scale.png'),
+    (Join-Path $charts 'slide_npc50.png'), (Join-Path $charts 'slide_scale5.png'),
+    (Join-Path $assets 'qr_simulador.png'), (Join-Path $assets 'qr_repositorio.png'),
+    (Join-Path $assets 'slide_menu.png'), (Join-Path $assets 'slide_jogo_debug.png'))) {
+    if (-not (Test-Path $need)) { throw "Arquivo necessário ausente: $need (veja os pré-requisitos no topo do script)" }
+}
+
+# Fonte única dos números: deck_data.json (derivado do CSV por build_deck_data.mjs)
+$D  = Get-Content (Join-Path $tools 'deck_data.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$dv = $D.derived
+$BUDGET = $D.meta.budgetF                      # "16 ms/quadro (60 fps)"
 
 Copy-Item $tmpl $workCopy -Force
 
-# Color constants (decimal RGB for PowerPoint COM)
+# ─── Cores (RGB decimal para o PowerPoint COM) ──────────────────────────────
 function RGB($r, $g, $b) { return [int]($r + ($g -shl 8) + ($b -shl 16)) }
-$cMagenta = RGB 207 13 114
+$cWhite   = RGB 255 255 255
+$cMagenta = RGB 207 13 114      # JPS / destaque institucional
 $cPurple  = RGB 65 57 103
 $cTextDk  = RGB 30 20 60
 $cTextMid = RGB 90 80 120
-$cGold    = RGB 200 130 30
-$cTech    = RGB 50 80 200
-$cOK      = RGB 30 130 70
-$cErr     = RGB 200 50 80
-$cWarn    = RGB 200 100 40
+$cBlue    = RGB 42 120 214      # A*  (mesma paleta dos gráficos)
+$cBlueDk  = RGB 24 79 149
+$cOrange  = RGB 235 104 52      # Dijkstra
+$cAqua    = RGB 27 175 122      # BFS
+$cViolet  = RGB 98 80 214       # DFS-Greedy
+$cOK      = RGB 22 122 62
+$cErr     = RGB 196 44 72
+$cGridLn  = RGB 205 200 220
+# fundos suaves de cartão
+$tMagenta = RGB 252 234 243
+$tBlue    = RGB 232 241 252
+$tPurple  = RGB 241 239 247
+$tGreen   = RGB 229 244 235
+$tRed     = RGB 252 235 238
+$tGray    = RGB 245 244 249
+$algColor = @{ astar = $cBlue; dijkstra = $cOrange; bfs = $cAqua; dfs = $cViolet; jps = $cMagenta }
+
+# ─── Escala tipográfica (pt) ─────────────────────────────────────────────────
+$szTitle = 36   # título na faixa
+$szMsg   = 24   # mensagem do slide (uma ideia)
+$szBody  = 24   # corpo
+$szTable = 20   # tabelas
+$szNote  = 18   # notas / referências (mínimo absoluto do deck)
 
 $ppt = New-Object -ComObject PowerPoint.Application
+$hadOpen = $ppt.Presentations.Count          # se o usuário já tinha algo aberto, não fechamos o PowerPoint
 $ppt.Visible = [Microsoft.Office.Core.MsoTriState]::msoTrue
 $pres = $ppt.Presentations.Open($workCopy, $false, $false, $true)
 
-# Take strong references to the four template slides before we clone & later delete.
 $tplCover   = $pres.Slides.Item(1)
 $tplSection = $pres.Slides.Item(2)
 $tplContent = $pres.Slides.Item(3)
 $tplThanks  = $pres.Slides.Item(10)
 
+$deck = New-Object System.Collections.ArrayList   # registro: slide, tipo, seção
+
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-function Set-Text($shape, $text, [int]$size = 0, [int]$rgb = -1, [bool]$bold = $false) {
-    $shape.TextFrame.TextRange.Text = $text
-    if ($size -gt 0) { $shape.TextFrame.TextRange.Font.Size = $size }
-    if ($rgb -ge 0) { $shape.TextFrame.TextRange.Font.Color.RGB = $rgb }
-    if ($bold) { $shape.TextFrame.TextRange.Font.Bold = $true }
-}
-
-function Add-Text($slide, $x, $y, $w, $h, $text, [int]$size = 14, [int]$rgb = -1, [bool]$bold = $false, [string]$align = 'left', [string]$font = '') {
-    $tb = $slide.Shapes.AddTextbox(1, $x, $y, $w, $h)  # 1 = msoTextOrientationHorizontal
-    $tr = $tb.TextFrame.TextRange
+function Add-Text($slide, [double]$x, [double]$y, [double]$w, [string]$text, [double]$size = 24, [int]$rgb = -1,
+                  [bool]$bold = $false, [string]$align = 'left', [string]$font = '') {
+    $tb = $slide.Shapes.AddTextbox(1, $x, $y, $w, 20)
+    $tf = $tb.TextFrame
+    $tf.MarginLeft = 0; $tf.MarginRight = 0; $tf.MarginTop = 0; $tf.MarginBottom = 0
+    $tf.WordWrap = -1
+    $tr = $tf.TextRange
     $tr.Text = $text
     $tr.Font.Size = $size
     if ($rgb -ge 0) { $tr.Font.Color.RGB = $rgb } else { $tr.Font.Color.RGB = $cTextDk }
-    if ($bold) { $tr.Font.Bold = $true }
+    if ($bold) { $tr.Font.Bold = -1 }
     if ($font -ne '') { $tr.Font.Name = $font }
     switch ($align) {
         'center' { $tr.ParagraphFormat.Alignment = 2 }
         'right'  { $tr.ParagraphFormat.Alignment = 3 }
         default  { $tr.ParagraphFormat.Alignment = 1 }
     }
-    $tb.TextFrame.MarginLeft = 2; $tb.TextFrame.MarginRight = 2
-    $tb.TextFrame.MarginTop  = 2; $tb.TextFrame.MarginBottom = 2
-    $tb.TextFrame.WordWrap = -1
     return $tb
 }
 
-function Add-Rect($slide, $x, $y, $w, $h, [int]$fillRgb = -1, [int]$lineRgb = -1, [double]$lineWidth = 0.0, [bool]$rounded = $false) {
-    $shapeType = if ($rounded) { 5 } else { 1 }  # 5 = msoShapeRoundedRectangle, 1 = msoShapeRectangle
-    $sh = $slide.Shapes.AddShape($shapeType, $x, $y, $w, $h)
-    if ($fillRgb -ge 0) { $sh.Fill.ForeColor.RGB = $fillRgb } else { $sh.Fill.Visible = 0 }
-    if ($lineRgb -ge 0) {
-        $sh.Line.ForeColor.RGB = $lineRgb
-        $sh.Line.Weight = $lineWidth
-    } else {
-        $sh.Line.Visible = 0
+# Texto com trechos em negrito marcados por [[ ... ]] (opcionalmente coloridos).
+function Add-Rich($slide, [double]$x, [double]$y, [double]$w, [string]$markup, [double]$size = 24,
+                  [int]$boldRgb = -1, [int]$rgb = -1, [string]$align = 'left') {
+    $parts = $markup -split '\[\[|\]\]'
+    $plain = $parts -join ''
+    $tb = Add-Text $slide $x $y $w $plain $size $rgb $false $align
+    $tr = $tb.TextFrame.TextRange
+    $pos = 1
+    for ($i = 0; $i -lt $parts.Count; $i++) {
+        $len = $parts[$i].Length
+        if ((($i % 2) -eq 1) -and ($len -gt 0)) {
+            $run = $tr.Characters($pos, $len)
+            $run.Font.Bold = -1
+            if ($boldRgb -ge 0) { $run.Font.Color.RGB = $boldRgb }
+        }
+        $pos += $len
     }
+    return $tb
+}
+
+function Add-Rect($slide, [double]$x, [double]$y, [double]$w, [double]$h, [int]$fillRgb = -1, [int]$lineRgb = -1,
+                  [double]$lineWidth = 0.0, [bool]$rounded = $false, [double]$radius = 0.12) {
+    $shapeType = if ($rounded) { 5 } else { 1 }
+    $sh = $slide.Shapes.AddShape($shapeType, $x, $y, $w, $h)
+    if ($rounded) { $sh.Adjustments.Item(1) = $radius }
+    if ($fillRgb -ge 0) { $sh.Fill.Solid(); $sh.Fill.ForeColor.RGB = $fillRgb } else { $sh.Fill.Visible = 0 }
+    if ($lineRgb -ge 0) { $sh.Line.ForeColor.RGB = $lineRgb; $sh.Line.Weight = $lineWidth } else { $sh.Line.Visible = 0 }
+    $sh.Shadow.Visible = 0
     return $sh
 }
 
-function Add-Image($slide, $path, $x, $y, $w, $h) {
-    return $slide.Shapes.AddPicture($path, 0, -1, $x, $y, $w, $h)
+function Add-Card($slide, [double]$x, [double]$y, [double]$w, [double]$h, [int]$fillRgb) {
+    return (Add-Rect $slide $x $y $w $h $fillRgb -1 0 $true 0.07)
 }
 
-# Adjust title pill width if title is too long for the default 287pt pill.
-function Resize-TitlePill($slide, [double]$newWidth, [double]$newPillW = 0) {
-    if ($newPillW -le 0) { $newPillW = $newWidth + 30 }
-    $slide.Shapes.Item(3).Width = $newPillW
-    $slide.Shapes.Item(4).Width = $newWidth
+function Add-Oval($slide, [double]$x, [double]$y, [double]$d, [int]$fillRgb) {
+    $sh = $slide.Shapes.AddShape(9, $x, $y, $d, $d)
+    $sh.Fill.Solid(); $sh.Fill.ForeColor.RGB = $fillRgb; $sh.Line.Visible = 0; $sh.Shadow.Visible = 0
+    return $sh
 }
 
-# Duplicate(...) inserts the new slide right after the source, which
-# would interleave new slides with the originals and break our final
-# deletion step. So we always move the duplicate to the end immediately.
+function Add-Line($slide, [double]$x1, [double]$y1, [double]$x2, [double]$y2, [int]$rgb, [double]$weight = 2.5,
+                  [bool]$arrow = $false, [int]$dash = 1) {
+    $ln = $slide.Shapes.AddLine($x1, $y1, $x2, $y2)
+    $ln.Line.ForeColor.RGB = $rgb
+    $ln.Line.Weight = $weight
+    $ln.Line.DashStyle = $dash                 # 1 = sólida, 4 = tracejada
+    if ($arrow) { $ln.Line.EndArrowheadStyle = 2; $ln.Line.EndArrowheadLength = 3; $ln.Line.EndArrowheadWidth = 3 }
+    $ln.Shadow.Visible = 0
+    return $ln
+}
+
+function Add-Image($slide, [string]$path, [double]$x, [double]$y, [double]$w, [double]$h, [string]$alt = '') {
+    $pic = $slide.Shapes.AddPicture($path, 0, -1, $x, $y, $w, $h)
+    if ($alt -ne '') { $pic.AlternativeText = $alt }
+    return $pic
+}
+
+# Etiqueta de callout: caixa branca com borda magenta e texto centralizado.
+function Add-Tag($slide, [double]$x, [double]$y, [double]$w, [double]$h, [string]$text, [double]$size = 20) {
+    $sh = Add-Rect $slide $x $y $w $h $cWhite $cMagenta 2.25 $true 0.28
+    $tf = $sh.TextFrame
+    $tf.MarginLeft = 4; $tf.MarginRight = 4; $tf.MarginTop = 0; $tf.MarginBottom = 0
+    $tf.WordWrap = 0
+    $tf.AutoSize = 0
+    $tf.VerticalAnchor = 3
+    $tf.TextRange.Text = $text
+    $tf.TextRange.Font.Size = $size
+    $tf.TextRange.Font.Bold = -1
+    $tf.TextRange.Font.Color.RGB = $cTextDk
+    $tf.TextRange.ParagraphFormat.Alignment = 2
+    return $sh
+}
+
+# Lista de tópicos (marcador quadrado). Aceita [[negrito]]. Devolve o y seguinte.
+function Add-Bullets($slide, [double]$x, [double]$y, [double]$w, $items, [double]$size = 24, [double]$gap = 14, [int]$markRgb = -1) {
+    if ($markRgb -lt 0) { $markRgb = $cMagenta }
+    foreach ($it in $items) {
+        $null = Add-Rect $slide $x ($y + $size * 0.42) 10 10 $markRgb
+        $tb = Add-Rich $slide ($x + 24) $y ($w - 24) $it $size
+        $y = $y + $tb.Height + $gap
+    }
+    return $y
+}
+
+# Tabela nativa do PowerPoint. $data = linhas; célula = string ou @{t;b;c;fill;a;sub}.
+function Add-Table($slide, [double]$x, [double]$y, $colW, $data, [double]$size = 20, [double]$rowH = 44,
+                   [int]$headRows = 1, [double]$headH = 40, $aligns = $null, $merges = $null) {
+    $nR = $data.Count; $nC = $colW.Count
+    $tw = 0.0; foreach ($cw in $colW) { $tw += $cw }
+    $shape = $slide.Shapes.AddTable($nR, $nC, $x, $y, $tw, $rowH * $nR)
+    $tbl = $shape.Table
+    $tbl.ApplyStyle('{2D5ABB26-0587-4C30-8999-92F81FD0307C}', $false)   # "Sem estilo, sem grade"
+    for ($c = 0; $c -lt $nC; $c++) { $tbl.Columns.Item($c + 1).Width = $colW[$c] }
+    for ($r = 0; $r -lt $nR; $r++) {
+        $isHead = ($r -lt $headRows)
+        for ($c = 0; $c -lt $nC; $c++) {
+            $spec = $data[$r][$c]
+            if ($spec -is [string]) { $spec = @{ t = $spec } }
+            $cell = $tbl.Cell($r + 1, $c + 1)
+            $tf = $cell.Shape.TextFrame
+            $tf.MarginLeft = 10; $tf.MarginRight = 8; $tf.MarginTop = 2; $tf.MarginBottom = 2
+            $tf.VerticalAnchor = 3
+            $txt = [string]$spec.t
+            if ($spec.sub) { $txt = $txt + "`r" + [string]$spec.sub }
+            $tr = $tf.TextRange
+            $tr.Text = $txt
+            $tr.Font.Size = $size
+            $tr.Font.Bold = 0
+            $tr.Font.Color.RGB = $cTextDk
+            $al = 'left'
+            if ($aligns -ne $null) { $al = $aligns[$c] }
+            if ($spec.a) { $al = $spec.a }
+            switch ($al) { 'center' { $tr.ParagraphFormat.Alignment = 2 } 'right' { $tr.ParagraphFormat.Alignment = 3 } default { $tr.ParagraphFormat.Alignment = 1 } }
+            if ($isHead) {
+                $tr.Font.Bold = -1; $tr.Font.Color.RGB = $cWhite
+                $cell.Shape.Fill.Solid(); $cell.Shape.Fill.ForeColor.RGB = $cPurple
+            } else {
+                if ($spec.b) { $tr.Font.Bold = -1 }
+                if ($spec.c -ne $null) { $tr.Font.Color.RGB = $spec.c }
+                if ($spec.fill -ne $null) { $cell.Shape.Fill.Solid(); $cell.Shape.Fill.ForeColor.RGB = $spec.fill } else { $cell.Shape.Fill.Visible = 0 }
+                if ($spec.sub) {
+                    $first = ([string]$spec.t).Length
+                    $subRun = $tr.Characters($first + 2, ([string]$spec.sub).Length)
+                    $subRun.Font.Size = $szNote; $subRun.Font.Bold = 0; $subRun.Font.Color.RGB = $cTextMid
+                }
+                $bd = $cell.Borders.Item(3)                 # linha inferior
+                $bd.Visible = -1; $bd.ForeColor.RGB = $cGridLn; $bd.Weight = 1
+            }
+        }
+        if ($isHead) { $tbl.Rows.Item($r + 1).Height = $headH } else { $tbl.Rows.Item($r + 1).Height = $rowH }
+    }
+    if ($merges -ne $null) {
+        foreach ($m in $merges) {                           # @{ r; c1; c2; t }
+            $tbl.Cell($m.r, $m.c1).Merge($tbl.Cell($m.r, $m.c2))
+            $mc = $tbl.Cell($m.r, $m.c1).Shape.TextFrame.TextRange
+            $mc.Text = $m.t; $mc.Font.Size = $size; $mc.Font.Bold = -1; $mc.Font.Color.RGB = $cWhite
+            $mc.ParagraphFormat.Alignment = 2
+        }
+    }
+    return $shape
+}
+
+# Quadradinho colorido ao lado do nome do algoritmo (mesma cor dos gráficos).
+function Add-Swatch($slide, [double]$x, [double]$y, [int]$rgb) {
+    return (Add-Rect $slide $x $y 14 14 $rgb -1 0 $true 0.2)
+}
+
+function Set-Notes($slide, [string]$text) {
+    try { $slide.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text = $text }
+    catch {
+        foreach ($ph in $slide.NotesPage.Shapes.Placeholders) {
+            if ($ph.PlaceholderFormat.Type -eq 2) { $ph.TextFrame.TextRange.Text = $text }
+        }
+    }
+}
+
+# Duplicate() insere logo após a origem; movemos para o fim para manter a ordem.
 function Dup-Move($srcSlide) {
     $new = $srcSlide.Duplicate().Item(1)
     $new.MoveTo($pres.Slides.Count)
     return $new
 }
 
-# Builds a content slide by duplicating template content slide and clearing
-# the default body shape (index 6). Returns the new slide.
-function New-ContentSlide($kicker, $title, [double]$titleW = 0) {
+# Slide de conteúdo: faixa com TÍTULO (36 pt) + MENSAGEM de uma linha (24 pt).
+function New-ContentSlide([string]$title, [string]$message, [string]$section = '') {
     $s = Dup-Move $tplContent
-    Set-Text $s.Shapes.Item(1) $kicker
-    Set-Text $s.Shapes.Item(4) $title
-    if ($titleW -gt 0) { Resize-TitlePill $s $titleW }
-    # Delete the sample body rectangle (shape 6) since we'll add our own
-    if ($s.Shapes.Count -ge 6) { $s.Shapes.Item(6).Delete() }
+    if ($s.Shapes.Count -ge 6) { $s.Shapes.Item(6).Delete() }      # corpo de exemplo do template
+    $kick = $s.Shapes.Item(1); $mark = $s.Shapes.Item(2); $ban = $s.Shapes.Item(3); $ttl = $s.Shapes.Item(4)
+
+    $ttl.TextFrame.WordWrap = 0
+    $ttl.TextFrame.TextRange.Text = $title
+    $ttl.TextFrame.TextRange.Font.Size = $szTitle
+    $ttl.TextFrame2.TextRange.Font.Spacing = 2
+    $ban.Height = 66
+    $ttl.Left = 24
+    $ttl.Top = (66 - $ttl.Height) / 2
+    $ban.Width = $ttl.Left + $ttl.Width + 36
+
+    $kick.Left = 22; $kick.Top = 74; $kick.Width = 900
+    $kick.TextFrame.TextRange.Text = $message
+    $kick.TextFrame.TextRange.Font.Size = $szMsg
+    $kick.TextFrame2.TextRange.Font.Spacing = 0
+    $mark.Top = $kick.Top + 9; $mark.Height = 20
+
+    $null = $deck.Add(@{ s = $s; kind = 'content'; section = $section })
     return $s
 }
 
-function New-SectionSlide($title) {
+function New-SectionSlide([string]$title, [string]$subtitle = '') {
     $s = Dup-Move $tplSection
-    Set-Text $s.Shapes.Item(1) $title
+    $s.Shapes.Item(1).TextFrame.TextRange.Text = $title
+    if ($subtitle -ne '') {
+        $t = $s.Shapes.Item(1)
+        $tb = Add-Text $s 130 ($t.Top + $t.Height + 14) 700 $subtitle 28 $cWhite $false 'center'
+    }
+    $null = $deck.Add(@{ s = $s; kind = 'section'; section = '' })
     return $s
 }
 
-# ─── Build slides (appended at end, indexes 11+) ────────────────────────────
+# Cartão de destaque à direita dos gráficos: número grande + duas frases.
+function Add-StatCard($slide, [int]$fillRgb, [int]$numRgb, [string]$big, [double]$bigSize, [string]$line1, [string]$line2) {
+    $card = Add-Card $slide 622 134 300 292 $fillRgb
+    $b = Add-Text $slide 640 146 266 $big $bigSize $numRgb $true
+    $y = 146 + $b.Height + 4
+    $l1 = Add-Rich $slide 640 $y 266 $line1 $szBody
+    $y = $y + $l1.Height + 12
+    if ($line2 -ne '') { $l2 = Add-Rich $slide 640 $y 266 $line2 $szBody; $y = $y + $l2.Height }
+    $card.Height = ($y + 22) - 134
+}
 
-# 1. COVER — title is much longer than template's; resize box & shrink font
+$sec1 = '01 · Introdução'
+$sec2 = '02 · Referencial Teórico'
+$sec3 = '03 · Metodologia'
+$sec4 = '04 · Resultados'
+$sec5 = '05 · Conclusão'
+$secB = 'Apoio'
+
+try {
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SLIDES PRINCIPAIS (17)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 1. CAPA ──────────────────────────────────────────────────────────────────
 $s = Dup-Move $tplCover
-$titleShape = $s.Shapes.Item(1)
-$titleShape.Top = 40
-$titleShape.Height = 175
-Set-Text $titleShape "Análise Comparativa de Algoritmos de Pathfinding para NPCs em Jogos 2D em Ambiente Web" 26
-$subShape = $s.Shapes.Item(2)
-$subShape.Top = 225
-Set-Text $subShape "A*  ·  DIJKSTRA  ·  BFS  ·  DFS  ·  JUMP POINT SEARCH" 12
-Set-Text $s.Shapes.Item(4) "Autor: Jeandeson Souza Nascimento`r`nE-mail: jeandeson.nascimento@bol.com.br`r`n`r`nOrientador: Prof. Gilson Amorim Carvalho`r`n`r`nUNIJORGE  ·  Ciência da Computação  ·  2026"
+$null = $deck.Add(@{ s = $s; kind = 'cover'; section = '' })
+$t = $s.Shapes.Item(1)
+$t.Left = 80; $t.Width = 800; $t.Top = 48
+$t.TextFrame.TextRange.Text = 'Análise Comparativa de Algoritmos de Pathfinding para NPCs em Jogos 2D em Ambiente Web'
+$t.TextFrame.TextRange.Font.Size = 40
+$sub = $s.Shapes.Item(2)
+$sub.Left = 80; $sub.Width = 800; $sub.Top = $t.Top + $t.Height + 16
+$sub.TextFrame.TextRange.Text = 'A*  ·  Dijkstra  ·  BFS  ·  DFS-Greedy  ·  JPS'
+$sub.TextFrame.TextRange.Font.Size = 26
+$sub.TextFrame.TextRange.Font.Color.RGB = $cWhite
+$au = $s.Shapes.Item(4)
+$au.Left = 40; $au.Top = 338; $au.Width = 760; $au.Height = 150
+$au.TextFrame.TextRange.Text = "Jeandeson Souza Nascimento`rOrientador: Prof. Gilson Amorim Carvalho`rUNIJORGE  ·  Ciência da Computação  ·  2026"
+$au.TextFrame.TextRange.Font.Size = 24
+$au.TextFrame.TextRange.Paragraphs(1).Font.Size = 30
+$au.TextFrame.TextRange.Paragraphs(1).Font.Bold = -1
+Set-Notes $s @"
+[0:35] Cumprimente a banca. "Sou Jeandeson Nascimento e apresento meu TCC: uma análise comparativa de algoritmos de pathfinding para NPCs em jogos 2D no navegador, orientado pelo professor Gilson Amorim Carvalho."
+Gancho: cinco algoritmos e uma pergunta: qual usar em um jogo web e quanto custa, de verdade, rodar cada um no navegador?
+"@
 
-# 2. AGENDA (content slide)
-$s = New-ContentSlide "Roteiro" "Agenda" 260
+# ── 2. AGENDA ────────────────────────────────────────────────────────────────
+$s = New-ContentSlide 'Agenda' 'Cinco seções em cerca de 15 minutos'
 $items = @(
-    @{ n='01'; t='Introdução';          d='Contexto, problema, justificativa e objetivos' },
-    @{ n='02'; t='Referencial Teórico'; d='Os 5 algoritmos analisados e suas variantes' },
-    @{ n='03'; t='Metodologia';         d='Stack, simulador desenvolvido e protocolo' },
-    @{ n='04'; t='Resultados';          d='Benchmarks de obstáculos, NPCs e congestionamento' },
-    @{ n='05'; t='Conclusão';           d='Trade-offs e trabalhos futuros' }
+    @{ n = '01'; t = 'Introdução';          d = 'Problema, pergunta de pesquisa e objetivos';   m = '≈ 2 min' },
+    @{ n = '02'; t = 'Referencial Teórico'; d = 'Os cinco algoritmos, com foco em A* e JPS';    m = '≈ 3 min' },
+    @{ n = '03'; t = 'Metodologia';         d = 'Ambiente de medição, simulador e cenários';    m = '≈ 4 min' },
+    @{ n = '04'; t = 'Resultados';          d = 'Nós expandidos, escalabilidade e trade-offs';  m = '≈ 4 min' },
+    @{ n = '05'; t = 'Conclusão';           d = 'Respostas, limitações e trabalhos futuros';    m = '≈ 2 min' }
 )
-$yStart = 130
+$y = 130
 foreach ($it in $items) {
-    Add-Rect $s 25 $yStart 50 50 $cMagenta | Out-Null
-    Add-Text $s 25 ($yStart + 6) 50 38 $it.n 22 -1 $true 'center' | Out-Null  # number, white
-    $s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Color.RGB = (RGB 255 255 255)
-    Add-Text $s 90 ($yStart + 4) 600 28 $it.t 18 $cPurple $true 'left' | Out-Null
-    Add-Text $s 90 ($yStart + 28) 700 22 $it.d 12 $cTextMid $false 'left' | Out-Null
-    $yStart += 60
+    $null = Add-Rect $s 40 $y 54 54 $cMagenta -1 0 $true 0.14
+    $null = Add-Text $s 40 ($y + 10) 54 $it.n 26 $cWhite $true 'center'
+    $null = Add-Text $s 114 ($y - 3) 700 $it.t 28 $cPurple $true
+    $null = Add-Text $s 114 ($y + 30) 560 $it.d 22 $cTextMid
+    $null = Add-Text $s 690 ($y + 10) 130 $it.m 24 $cTextMid $false 'right'
+    $y += 73
 }
+Set-Notes $s @"
+[0:20] Passe pelos cinco blocos sem detalhar: introdução, referencial dos cinco algoritmos, metodologia com o simulador, resultados dos benchmarks e conclusão. O indicador no canto superior direito de cada slide mostra em qual seção estamos.
+"@
 
-# 3. SECTION 01 — Introdução
-New-SectionSlide "01 — Introdução" | Out-Null
+# ── 3. PROBLEMA ──────────────────────────────────────────────────────────────
+$s = New-ContentSlide 'Problema' 'Falta medir o custo real do pathfinding no navegador' $sec1
+$null = Add-Bullets $s 40 142 520 @(
+    'Movimento inteligente dos NPCs sustenta a experiência do jogo (Moon et al., 2022)',
+    'A literatura mede o desempenho em C++ e em código nativo',
+    '[[Lacuna:]] A* × JPS em JavaScript quase não é documentado'
+) $szBody 22
+$card = Add-Card $s 590 134 332 268 $tMagenta
+$null = Add-Text $s 610 152 292 'PERGUNTA DE PESQUISA' $szNote $cMagenta $true
+$q = Add-Text $s 610 186 294 'Qual algoritmo de pathfinding escolher em jogos web 2D, e qual é o custo real no navegador?' 28 $cTextDk $true
+$card.Height = ($q.Top + $q.Height + 22) - 134
+Set-Notes $s @"
+[1:00] Em jogos de exploração, o movimento inteligente dos NPCs é essencial. O dev indie tem IA pronta em Unity e Phaser, mas a literatura clássica mede pathfinding em C++ ou código nativo. No navegador quem executa é o motor V8: compilação JIT, coletor de lixo e relógio com resolução limitada mudam o custo real. A lacuna específica é a comparação A* contra JPS em JavaScript.
+Leia a pergunta de pesquisa apontando para o cartão.
+"@
 
-# 4. CONTEXTO E PROBLEMA
-$s = New-ContentSlide "Contexto" "Problema" 220
-$bullets = @(
-    "Jogos digitais combinam regras formais e mundos fictícios (Juul, 2005)",
-    "Em jogos de exploração, movimento inteligente é essencial para UX (Moon et al., 2022)",
-    "Devs indie têm acesso facilitado a IA via Unity e Phaser.js",
-    "Porém, falta referência de desempenho de pathfinding no navegador (V8)"
-)
-$yb = 130
-foreach ($b in $bullets) {
-    Add-Rect $s 30 ($yb + 8) 6 6 $cMagenta | Out-Null
-    Add-Text $s 48 $yb 620 28 $b 13 $cTextDk $false 'left' | Out-Null
-    $yb += 32
-}
-# Pergunta de pesquisa box (right)
-Add-Rect $s 690 130 260 130 -1 $cMagenta 1.5 $true | Out-Null
-Add-Text $s 705 138 240 20 "PERGUNTA DE PESQUISA" 9 $cMagenta $true 'left' | Out-Null
-Add-Text $s 705 158 240 95 "Qual algoritmo de pathfinding escolher para ambientes web 2D, e qual o custo real de execução no navegador?" 13 $cTextDk $false 'left' | Out-Null
-# Stats row at bottom
-$stats = @(
-    @{ v='5';  l='algoritmos analisados';     c=$cMagenta },
-    @{ v='4';  l='cenários de benchmark';     c=$cTech },
-    @{ v='V8'; l='JavaScript Engine';          c=$cPurple },
-    @{ v='16 ms'; l='orçamento por quadro · 60 fps';  c=$cOK }
-)
-$xs = 30
-foreach ($st in $stats) {
-    Add-Rect $s $xs 290 215 130 -1 $st.c 1 $true | Out-Null
-    Add-Text $s $xs 305 215 60 $st.v 36 $st.c $true 'center' | Out-Null
-    Add-Text $s $xs 380 215 30 $st.l 11 $cTextMid $false 'center' | Out-Null
-    $xs += 230
-}
-
-# 5. JUSTIFICATIVA
-$s = New-ContentSlide "Justificativa" "Justificativa" 220
-$bullets = @(
-    "Literatura clássica reporta experimentos em C++ ou compilação nativa",
-    "JavaScript introduz variabilidade não documentada para pathfinding",
-    "JIT progressivo, pausas de garbage collection, mitigações Spectre (timer)"
-)
-$yb = 130
-foreach ($b in $bullets) {
-    Add-Rect $s 30 ($yb + 8) 6 6 $cMagenta | Out-Null
-    Add-Text $s 48 $yb 580 28 $b 13 $cTextDk $false 'left' | Out-Null
-    $yb += 32
-}
-Add-Rect $s 30 235 600 50 -1 $cMagenta 1.5 $true | Out-Null
-Add-Text $s 45 245 580 18 "LACUNA IDENTIFICADA" 10 $cMagenta $true 'left' | Out-Null
-Add-Text $s 45 263 580 22 "A comparação A* vs JPS em ambiente JavaScript/Web é pouco documentada" 13 $cTextDk $true 'left' | Out-Null
-
-Add-Rect $s 30 300 600 50 -1 $cOK 1.5 $true | Out-Null
-Add-Text $s 45 310 580 18 "ENTREGA ADICIONAL" 10 $cOK $true 'left' | Out-Null
-Add-Text $s 45 328 580 22 "Artefato funcional hospedado online — banca executa sem instalar nada" 13 $cTextDk $true 'left' | Out-Null
-
-# URL card on the right
-Add-Rect $s 660 130 290 290 -1 $cTech 1.5 $true | Out-Null
-Add-Text $s 670 145 270 22 "SIMULADOR ONLINE" 10 $cTech $true 'center' | Out-Null
-Add-Text $s 670 170 270 60 "pathfinding-quest-j95b.vercel.app" 13 $cTextDk $true 'center' 'Consolas' | Out-Null
-Add-Rect $s 700 235 210 1 $cTech | Out-Null
-Add-Text $s 670 245 270 22 "REPOSITÓRIO" 10 $cTech $true 'center' | Out-Null
-Add-Text $s 670 268 270 50 "github.com/jeandeson/pathfinding-quest" 11 $cTextDk $false 'center' 'Consolas' | Out-Null
-Add-Text $s 670 330 270 60 "Demonstração ao vivo`r`ndurante a defesa" 12 $cMagenta $true 'center' | Out-Null
-
-# 6. OBJETIVOS
-$s = New-ContentSlide "Objetivos" "Objetivos"
-# OBJETIVO GERAL block
-Add-Rect $s 30 130 920 80 -1 $cMagenta 1.5 $true | Out-Null
-Add-Text $s 40 138 900 18 "OBJETIVO GERAL" 10 $cMagenta $true 'left' | Out-Null
-Add-Text $s 40 158 900 50 "Analisar comparativamente o desempenho de A*, Dijkstra, BFS, DFS e JPS em ambiente 2D com obstáculos, por meio de um simulador interativo em JavaScript/TypeScript, avaliando métricas de eficiência computacional em ambiente web." 12 $cTextDk $false 'left' | Out-Null
-
-# 5 specific objectives cards
+# ── 4. OBJETIVOS ─────────────────────────────────────────────────────────────
+$s = New-ContentSlide 'Objetivos' 'Comparar cinco algoritmos em um simulador web próprio' $sec1
+$null = Add-Card $s 40 132 880 100 $tPurple
+$null = Add-Text $s 58 140 400 'OBJETIVO GERAL' $szNote $cMagenta $true
+$null = Add-Text $s 58 164 846 'Analisar comparativamente A*, Dijkstra, BFS, DFS-Greedy e JPS em um ambiente 2D com obstáculos, medindo a eficiência no navegador.' $szBody
+$null = Add-Text $s 40 246 400 'OBJETIVOS ESPECÍFICOS' $szNote $cMagenta $true
 $objs = @(
-    @{ n='1'; t='Estudar';        d="Princípios dos 5`r`nalgoritmos em grades 2D" },
-    @{ n='2'; t='Implementar';    d="Do zero, sem`r`nbibliotecas externas" },
-    @{ n='3'; t='Disponibilizar'; d="Simulador interativo`r`nacessível por URL pública" },
-    @{ n='4'; t='Avaliar';        d="Métricas: tempo · nós ·`r`ncaminho · sucesso" },
-    @{ n='5'; t='Validar';        d="Admissibilidade da`r`nheurística de Manhattan" }
+    '[[Estudar]] os princípios dos cinco algoritmos',
+    '[[Implementar]] todos do zero, sem bibliotecas',
+    '[[Disponibilizar]] um simulador interativo online',
+    '[[Avaliar]] tempo, nós expandidos, caminho e sucesso',
+    '[[Validar]] a admissibilidade da heurística de Manhattan'
 )
-$xc = 30
+$y = 276; $i = 1
 foreach ($o in $objs) {
-    Add-Rect $s $xc 220 178 200 -1 $cPurple 1 $true | Out-Null
-    Add-Rect $s ($xc + 65) 232 48 48 $cMagenta | Out-Null
-    Add-Text $s ($xc + 65) 238 48 38 $o.n 22 -1 $true 'center' | Out-Null
-    $s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Color.RGB = (RGB 255 255 255)
-    Add-Text $s $xc 290 178 28 $o.t 14 $cPurple $true 'center' | Out-Null
-    Add-Text $s ($xc + 5) 322 168 90 $o.d 11 $cTextDk $false 'center' | Out-Null
-    $xc += 188
+    $null = Add-Oval $s 40 $y 34 $cMagenta
+    $null = Add-Text $s 40 ($y + 4) 34 "$i" 20 $cWhite $true 'center'
+    $null = Add-Rich $s 88 ($y + 2) 730 $o $szBody $cPurple
+    $y += 44; $i++
 }
+Set-Notes $s @"
+[0:45] Objetivo geral: comparar o desempenho dos cinco algoritmos em um ambiente 2D com obstáculos, com um simulador em TypeScript. Específicos, em uma frase: estudar os princípios, implementar do zero, disponibilizar o simulador online, avaliar por métricas (tempo, nós expandidos, comprimento do caminho e taxa de sucesso) e validar a admissibilidade da heurística de Manhattan.
+"@
 
-# 7. SECTION 02 — Referencial Teórico
-New-SectionSlide "02 — Referencial Teórico" | Out-Null
-
-# 8. OS 5 ALGORITMOS
-$s = New-ContentSlide "Os 5 algoritmos" "Algoritmos" 220
-$headers = @('Algoritmo', 'Ótimo?', 'Heurística', 'Memória', 'Característica principal')
+# ── 5. OS 5 ALGORITMOS ───────────────────────────────────────────────────────
+$s = New-ContentSlide 'Os 5 algoritmos' 'Quatro garantem o caminho ótimo; o DFS-Greedy, não' $sec2
+$yes = @{ t = '✓  Sim'; c = $cOK;  b = $true }
+$no  = @{ t = '✗  Não'; c = $cErr; b = $true }
 $rows = @(
-    @{ a='Dijkstra'; ot='Sim'; h='Não'; m='Alta'; d='Base de toda busca informada · explora uniformemente'; c=$cWarn },
-    @{ a='BFS';      ot='Sim (passos)'; h='Não'; m='Alta'; d='Fila FIFO · ótimo em grades não ponderadas'; c=$cOK },
-    @{ a='DFS (Greedy)'; ot='Não'; h='Ordenação Manhattan'; m='Baixa'; d='Pilha LIFO · rápido mas caminhos subótimos'; c=$cErr },
-    @{ a='A*'; ot='Sim'; h='Manhattan'; m='Média'; d='f(n) = g(n) + h(n) · marco da busca heurística'; c=$cTech },
-    @{ a='JPS'; ot='Sim'; h='Manhattan + poda'; m='Baixa'; d='Pula simetrias em corredores · ótima em grades densas'; c=$cMagenta }
+    @( 'Algoritmo', 'Caminho ótimo?', 'Como busca' ),
+    @( @{ t = 'Dijkstra'; b = $true },   $yes, 'Menor custo acumulado, sem heurística' ),
+    @( @{ t = 'BFS'; b = $true },        $yes, 'Camada por camada, com fila FIFO' ),
+    @( @{ t = 'DFS-Greedy'; b = $true; sub = 'variante adotada' }, $no, 'Pilha LIFO guiada por Manhattan' ),
+    @( @{ t = 'A*'; b = $true },         $yes, 'f(n) = g(n) + h(n)' ),
+    @( @{ t = 'JPS'; b = $true },        $yes, 'A* com saltos e poda de simetrias' )
 )
-$colX = @(30, 165, 250, 410, 510)
-$colW = @(135, 85, 160, 100, 440)
-# Header row
-Add-Rect $s 30 130 920 32 $cPurple | Out-Null
-for ($i = 0; $i -lt $headers.Count; $i++) {
-    Add-Text $s $colX[$i] 137 $colW[$i] 22 $headers[$i] 11 -1 $true 'left' | Out-Null
-    $s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Color.RGB = (RGB 255 255 255)
+$tblTop = 130; $headH = 40; $rowH = 54
+$tb = Add-Table $s 40 $tblTop @(290, 180, 410) $rows 22 $rowH 1 $headH
+$order = @('dijkstra', 'bfs', 'dfs', 'astar', 'jps')
+for ($r = 0; $r -lt 5; $r++) {
+    $tb.Table.Cell($r + 2, 1).Shape.TextFrame.MarginLeft = 38
+    $null = Add-Swatch $s 54 ($tblTop + $headH + $r * $rowH + ($rowH - 14) / 2) $algColor[$order[$r]]
 }
-# Data rows
-$yr = 162
-foreach ($r in $rows) {
-    Add-Text $s $colX[0] ($yr + 6) $colW[0] 22 $r.a 12 $r.c $true 'left' | Out-Null
-    Add-Text $s $colX[1] ($yr + 6) $colW[1] 22 $r.ot 11 $cTextDk $false 'left' | Out-Null
-    Add-Text $s $colX[2] ($yr + 6) $colW[2] 22 $r.h 11 $cTextDk $false 'left' | Out-Null
-    Add-Text $s $colX[3] ($yr + 6) $colW[3] 22 $r.m 11 $cTextDk $false 'left' | Out-Null
-    Add-Text $s $colX[4] ($yr + 6) $colW[4] 22 $r.d 11 $cTextDk $false 'left' | Out-Null
-    Add-Rect $s 30 ($yr + 32) 920 1 (RGB 220 215 235) | Out-Null
-    $yr += 34
-}
-Add-Text $s 30 ($yr + 14) 920 22 "A escolha do algoritmo impacta diretamente o desempenho em cenários específicos (Salem et al., 2024)" 11 $cTextMid $false 'center' | Out-Null
-$s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Italic = $true
+Set-Notes $s @"
+[1:00] Não leia célula por célula. Dijkstra é a base: ótimo, sem heurística, explora tudo por custo. BFS usa fila e garante o menor número de passos em grade de custo uniforme. O DFS entra na variante adotada, o DFS-Greedy: pilha guiada pela distância de Manhattan, rápido, mas sem garantia de ótimo. O A* soma custo real e estimativa. O JPS é o A* com saltos.
+As cores dos quadradinhos são as mesmas dos gráficos de resultados.
+"@
 
-# 9. A* e JPS em foco
-$s = New-ContentSlide "A* e JPS · em foco" "Em foco" 200
-# A* column
-Add-Rect $s 30 130 445 290 -1 $cTech 1.5 $true | Out-Null
-Add-Text $s 45 142 415 25 "A* (A-Star) — Hart et al., 1968" 14 $cTech $true 'left' | Out-Null
-Add-Text $s 45 170 415 50 "Conciliação entre Dijkstra e busca heurística informada. Marco essencial da área." 11 $cTextDk $false 'left' | Out-Null
-Add-Rect $s 60 225 385 50 (RGB 235 240 255) | Out-Null
-Add-Text $s 60 232 385 25 "f(n) = g(n) + h(n)" 18 $cTech $true 'center' 'Consolas' | Out-Null
-Add-Text $s 60 260 385 18 "g(n) custo real · h(n) estimativa" 10 $cTextMid $false 'center' | Out-Null
-$bulletsA = @(
-    "Equilíbrio entre velocidade e precisão",
-    "Heurística admissível ⇒ caminho ótimo",
-    "Distância de Manhattan para grades 4-direcionais"
-)
-$yb = 290
-foreach ($b in $bulletsA) {
-    Add-Rect $s 55 ($yb + 6) 5 5 $cTech | Out-Null
-    Add-Text $s 70 $yb 400 22 $b 11 $cTextDk $false 'left' | Out-Null
-    $yb += 25
-}
-# JPS column
-Add-Rect $s 490 130 460 290 -1 $cMagenta 1.5 $true | Out-Null
-Add-Text $s 505 142 430 25 "JPS — Harabor & Grastien, 2011" 14 $cMagenta $true 'left' | Out-Null
-Add-Text $s 505 170 430 50 "Otimização do A*: poda de simetrias e jump points eliminam vizinhos redundantes." 11 $cTextDk $false 'left' | Out-Null
-Add-Rect $s 520 225 400 50 (RGB 252 230 240) | Out-Null
-Add-Text $s 520 232 400 25 "−99% nós em densidade 0,4" 16 $cMagenta $true 'center' | Out-Null
-Add-Text $s 520 260 400 18 "3 nós (JPS) vs 399 nós (A*)" 10 $cTextMid $false 'center' | Out-Null
-$bulletsJ = @(
-    "Mantém completude e otimalidade de A*",
-    "Salta em linhas retas até jump points",
-    "Adaptado para movimento 4-direcional neste trabalho"
-)
-$yb = 290
-foreach ($b in $bulletsJ) {
-    Add-Rect $s 515 ($yb + 6) 5 5 $cMagenta | Out-Null
-    Add-Text $s 530 $yb 400 22 $b 11 $cTextDk $false 'left' | Out-Null
-    $yb += 25
-}
+# ── 6. A* ────────────────────────────────────────────────────────────────────
+$s = New-ContentSlide 'A*' 'Custo real + estimativa: busca guiada com caminho ótimo' $sec2
+$null = Add-Card $s 40 134 480 244 $tBlue
+$null = Add-Text $s 40 152 480 'f(n) = g(n) + h(n)' 46 $cBlueDk $true 'center' 'Consolas'
+$null = Add-Rich $s 76 238 420 '[[g(n)]]  custo real desde a origem' $szBody $cBlueDk
+$null = Add-Rich $s 76 278 420 '[[h(n)]]  estimativa até o objetivo' $szBody $cBlueDk
+$null = Add-Text $s 76 332 420 'Hart, Nilsson e Raphael (1968)' $szNote $cTextMid
+$null = Add-Bullets $s 560 146 362 @(
+    '[[Heurística admissível]] garante o caminho ótimo',
+    '[[Manhattan:]] h = |Δx| + |Δy|, para grades de 4 direções',
+    'Fila de prioridade em [[heap binário]]'
+) $szBody 22 $cBlue
+Set-Notes $s @"
+[0:50] O A* concilia o Dijkstra com a busca heurística. f(n) soma o custo real g(n) com a estimativa h(n). Com heurística admissível (que nunca superestima) o caminho encontrado é o ótimo. Em grade de 4 direções a distância de Manhattan é admissível e consistente (prova no slide de apoio 31). A lista aberta é um heap binário: O((V+E) log V).
+"@
 
-# 10. SECTION 03 — Metodologia
-New-SectionSlide "03 — Metodologia" | Out-Null
-
-# 11. STACK E AMBIENTE
-$s = New-ContentSlide "Stack e ambiente" "Stack" 180
-Add-Text $s 30 130 440 22 "STACK TÉCNICA" 11 $cMagenta $true 'left' | Out-Null
-$stack = @(
-    @{ k='Linguagem';    v='TypeScript 5' },
-    @{ k='Bundler';      v='Vite 7' },
-    @{ k='Renderização'; v='Canvas 2D nativa (HTML5)' },
-    @{ k='Dependências'; v='Zero bibliotecas de pathfinding' },
-    @{ k='Deploy';       v='Vercel (Edge Network)' }
-)
-$yb = 158
-foreach ($it in $stack) {
-    Add-Text $s 30 $yb 130 22 $it.k 11 $cTextMid $false 'left' | Out-Null
-    Add-Text $s 170 $yb 280 22 $it.v 12 $cTech $true 'left' 'Consolas' | Out-Null
-    $yb += 28
+# ── 7. JPS ───────────────────────────────────────────────────────────────────
+$s = New-ContentSlide 'JPS' 'Saltar em linha reta em vez de expandir célula a célula' $sec2
+$cs = 38; $gy = 178
+function Draw-Grid($slide, [double]$x0, [double]$y0, [double]$cell, $fills, $labels) {
+    for ($r = 0; $r -lt 3; $r++) {
+        for ($c = 0; $c -lt 10; $c++) {
+            $key = "$c,$r"
+            $fill = RGB 247 246 251
+            if ($fills.ContainsKey($key)) { $fill = $fills[$key] }
+            $null = Add-Rect $slide ($x0 + $c * $cell) ($y0 + $r * $cell) $cell $cell $fill $cGridLn 0.75
+            if ($labels.ContainsKey($key)) {
+                $lb = $labels[$key]
+                $null = Add-Text $slide ($x0 + $c * $cell) ($y0 + $r * $cell + 6) $cell $lb.t 20 $lb.c $true 'center'
+            }
+        }
+    }
 }
-# Hardware column
-Add-Text $s 490 130 440 22 "AMBIENTE DE BENCHMARK" 11 $cMagenta $true 'left' | Out-Null
-$hw = @(
-    @{ k='CPU';     v='Intel Core i5-10300H' },
-    @{ k='RAM';     v='16 GB' },
-    @{ k='Storage'; v='SSD NVMe' },
-    @{ k='OS';      v='Windows 11 Pro' },
-    @{ k='Browser'; v='Chrome · V8 (headless)' }
-)
-$yb = 158
-foreach ($it in $hw) {
-    Add-Text $s 490 $yb 130 22 $it.k 11 $cTextMid $false 'left' | Out-Null
-    Add-Text $s 630 $yb 300 22 $it.v 12 $cTextDk $true 'left' | Out-Null
-    $yb += 28
-}
-# Protocol box
-Add-Rect $s 30 320 920 90 -1 $cPurple 1 $true | Out-Null
-Add-Text $s 45 330 900 20 "PROTOCOLO DE REPRODUTIBILIDADE" 10 $cMagenta $true 'left' | Out-Null
-Add-Text $s 45 352 900 50 "performance.now() · medição em lote (supera o piso de resolução do relógio do Chrome) · 10 janelas · Chrome headless · PRNG mulberry32 (sementes fixas)" 12 $cTextDk $false 'left' | Out-Null
+$obst = @{ '3,0' = $cPurple; '4,0' = $cPurple; '5,0' = $cPurple }
+# A*: expande as 9 células da linha até o objetivo
+$fa = @{}; foreach ($k in $obst.Keys) { $fa[$k] = $obst[$k] }
+for ($c = 0; $c -le 8; $c++) { $fa["$c,1"] = RGB 176 208 246 }
+$fa['9,1'] = RGB 190 232 205
+$la = @{ '0,1' = @{ t = 'S'; c = $cBlueDk }; '9,1' = @{ t = 'G'; c = $cOK } }
+$null = Add-Rich $s 40 138 400 '[[A*]]  expande cada célula' $szBody $cBlueDk
+Draw-Grid $s 40 $gy $cs $fa $la
+$null = Add-Text $s 40 ($gy + 3 * $cs + 8) 380 '9 nós expandidos' 26 $cBlueDk $true
+# JPS: só a origem e o ponto de salto entram na fila
+$fj = @{}; foreach ($k in $obst.Keys) { $fj[$k] = $obst[$k] }
+$fj['0,1'] = RGB 246 190 218; $fj['6,1'] = $cMagenta; $fj['9,1'] = RGB 190 232 205
+$lj = @{ '0,1' = @{ t = 'S'; c = $cMagenta }; '6,1' = @{ t = 'P'; c = $cWhite }; '9,1' = @{ t = 'G'; c = $cOK } }
+$gx = 500
+$null = Add-Rich $s $gx 138 420 '[[JPS]]  salta até o ponto de salto' $szBody $cMagenta
+Draw-Grid $s $gx $gy $cs $fj $lj
+$midY = $gy + 1.5 * $cs
+$null = Add-Line $s ($gx + $cs + 3) $midY ($gx + 6 * $cs - 3) $midY $cMagenta 3.5 $true
+$null = Add-Line $s ($gx + 7 * $cs + 3) $midY ($gx + 9 * $cs - 3) $midY $cMagenta 3.5 $true
+$null = Add-Text $s $gx ($gy + 3 * $cs + 8) 380 '2 nós expandidos' 26 $cMagenta $true
+$null = Add-Text $s 40 ($gy + 3 * $cs + 46) 880 'S: origem  ·  G: objetivo  ·  P: ponto de salto  ·  células escuras: obstáculos' $szNote $cTextMid
+$null = Add-Bullets $s 40 370 790 @(
+    '[[Mesmo caminho ótimo]] do A*, com muito menos nós expandidos',
+    'Adaptado neste trabalho para [[4 direções]] (o original usa 8)'
+) $szBody 12
+$null = Add-Text $s 64 448 600 'Harabor e Grastien (2011)' $szNote $cTextMid
+Set-Notes $s @"
+[1:00] Mesmo mapa, dois algoritmos. O A* expande as nove células do corredor, uma a uma. O JPS salta em linha reta e só para em um ponto de salto: aqui, a célula P, onde o fim do obstáculo cria um vizinho forçado. Resultado: 2 nós expandidos em vez de 9, e o mesmo caminho.
+O JPS original (Harabor e Grastien, 2011) usa 8 direções. Neste trabalho foi adaptado para 4 direções; os detalhes estão no slide de apoio 22.
+"@
 
-# 12. SIMULADOR
-$s = New-ContentSlide "Simulador" "Simulador" 240
-Add-Image $s (Join-Path $assets 'crop_04_jogo_debug_pathfinding.png') 30 130 560 290 | Out-Null
-# Right info card
-Add-Rect $s 615 130 335 290 -1 $cTech 1.5 $true | Out-Null
-Add-Text $s 625 142 315 20 "DEMONSTRAÇÃO AO VIVO" 10 $cGold $true 'center' | Out-Null
-Add-Text $s 625 165 315 70 "pathfinding-quest-j95b.vercel.app" 14 $cTech $true 'center' 'Consolas' | Out-Null
-Add-Rect $s 645 235 275 1 $cTech | Out-Null
-$controls = @(
-    "Selecionar algoritmo dos NPCs",
-    "Clicar no mapa para mover",
-    "Tecla D para debug visual",
-    "Modo Benchmark com gráficos"
-)
-$yb = 250
-foreach ($c in $controls) {
-    Add-Rect $s 640 ($yb + 8) 5 5 $cMagenta | Out-Null
-    Add-Text $s 655 $yb 280 25 $c 11 $cTextDk $false 'left' | Out-Null
-    $yb += 25
-}
-
-# 13. CENÁRIOS DE TESTE
-$s = New-ContentSlide "Cenários de teste" "Cenários" 200
+# ── 8. AMBIENTE DE MEDIÇÃO ───────────────────────────────────────────────────
+$s = New-ContentSlide 'Ambiente de medição' 'Medição no navegador real, justa e reprodutível' $sec3
 $cards = @(
-    @{ t='Densidade de Obstáculos'; d="Grade 20×20`r`nDensidades 0,2 e 0,4`r`nTabelas 1 e 2"; c=$cTech },
-    @{ t='Múltiplos NPCs';          d="Grade 20×20, densidade 0,2`r`n50 NPCs simultâneos`r`nTabela 3"; c=$cOK },
-    @{ t='Congestionamento';        d="Grade 30×30 · corredor central`r`n5, 10, 20 e 50 NPCs`r`nTabela 4"; c=$cWarn },
-    @{ t='Objetivos Dinâmicos';     d="Grade 40×40, densidade 0,25`r`n3 etapas sequenciais`r`nTabela 6"; c=$cMagenta }
+    @{ h = 'Implementação';     c = $cBlueDk;  f = $tBlue;    l = "TypeScript`rCanvas 2D nativo`rSem bibliotecas de pathfinding" },
+    @{ h = 'Medição';           c = $cMagenta; f = $tMagenta; l = "Chrome headless (V8)`rperformance.now() em lotes`r10 janelas por cenário" },
+    @{ h = 'Reprodutibilidade'; c = $cOK;      f = $tGreen;   l = "Sementes fixas (mulberry32)`rMesmos nós e caminhos em qualquer máquina" }
 )
-$i = 0
-foreach ($card in $cards) {
-    $x = 30 + ($i % 2) * 460
-    $y = 130 + [math]::Floor($i / 2) * 145
-    Add-Rect $s $x $y 450 130 -1 $card.c 1.2 $true | Out-Null
-    Add-Rect $s $x $y 6 130 $card.c | Out-Null
-    Add-Text $s ($x + 20) ($y + 10) 420 28 $card.t 15 $cTextDk $true 'left' | Out-Null
-    Add-Text $s ($x + 20) ($y + 42) 420 80 $card.d 11 $cTextMid $false 'left' | Out-Null
-    $i++
+$x = 40; $cardBoxes = @(); $maxBottom = 0
+foreach ($cd in $cards) {
+    $cardBoxes += (Add-Card $s $x 134 286 270 $cd.f)
+    $null = Add-Text $s ($x + 18) 148 252 $cd.h 26 $cd.c $true
+    $tb = Add-Text $s ($x + 18) 194 252 $cd.l $szBody
+    $tb.TextFrame.TextRange.ParagraphFormat.SpaceAfter = 8
+    if (($tb.Top + $tb.Height) -gt $maxBottom) { $maxBottom = $tb.Top + $tb.Height }
+    $x += 297
 }
+foreach ($cb in $cardBoxes) { $cb.Height = ($maxBottom + 14) - 134 }
+$null = Add-Text $s 40 ($maxBottom + 28) 780 'Hardware: Intel Core i5-10300H  ·  16 GB de RAM  ·  Windows 11 Pro' $szNote $cTextMid
+Set-Notes $s @"
+[0:55] Três decisões. Implementação: TypeScript e Canvas 2D nativo, sem framework de jogo e sem biblioteca de pathfinding, para não inserir variáveis externas. Medição: Chrome headless; como o relógio do navegador tem resolução de cerca de 0,1 ms, cada busca é repetida em lote e o tempo é a janela dividida pelo número de repetições, em 10 janelas. Reprodutibilidade: sementes fixas, então nós expandidos e caminhos são idênticos em qualquer máquina; só o tempo depende do hardware.
+Detalhes do protocolo: slide de apoio 30.
+"@
 
-# 14. SECTION 04 — Resultados
-New-SectionSlide "04 — Resultados" | Out-Null
+# ── 9. SIMULADOR (callouts) ──────────────────────────────────────────────────
+$s = New-ContentSlide 'Simulador' 'Artefato online: pathfinding-quest-j95b.vercel.app' $sec3
+$gX = 30; $gY = 128; $gW = 500; $gH = 375                       # jogo (4:3)
+$null = Add-Image $s (Join-Path $assets 'slide_jogo_debug.png') $gX $gY $gW $gH 'Simulador em modo de depuração: grade, custos f de cada célula e caminho do jogador até o destino clicado.'
+$mX = 560; $mY = 128; $mW = 370; $mH = [math]::Round(370 * 366 / 520, 1)   # recorte do menu (520×366)
+$null = Add-Image $s (Join-Path $assets 'slide_menu.png') $mX $mY $mW $mH 'Menu do simulador: botões Iniciar Jogo e Executar Benchmark e a seleção de algoritmo (A*, Dijkstra, BFS, DFS, JPS).'
+$k = $mW / 520.0                                                # px do recorte → pt
+# callouts do jogo (sobre a imagem)
+$destX = $gX + (12.5 * 64 / 1280) * $gW; $destY = $gY + (4.5 * 64 / 960) * $gH    # destino clicado (X amarelo)
+$null = Add-Line $s ($destX + 46) ($destY - 44) ($destX + 9) ($destY - 8) $cMagenta 3 $true
+$null = Add-Tag $s ($destX + 2) ($destY - 78) 178 34 'Clique para mover'
+$numX = $gX + (2.12 * 64 / 1280) * $gW; $numY = $gY + (11.2 * 64 / 960) * $gH     # custo f da célula (2,11), visível com a tecla D
+$null = Add-Line $s ($numX + 40) ($numY + 40) ($numX + 5) ($numY + 5) $cMagenta 3 $true
+$null = Add-Tag $s ($numX + 14) ($numY + 40) 192 34 'Tecla D: depuração'
+# callouts do menu (abaixo do recorte)
+$tagY = $mY + $mH + 12
+$null = Add-Tag $s $mX $tagY 198 34 'Seleção de algoritmo'
+$null = Add-Line $s ($mX + 99) $tagY ($mX + 145 * $k) ($mY + 302 * $k) $cMagenta 3 $true
+$null = Add-Tag $s ($mX + 212) $tagY 158 34 'Modo benchmark'
+$bx = $mX + 500 * $k; $by = $mY + 108 * $k                      # margem direita do recorte / botão
+$null = Add-Line $s $bx $tagY $bx $by $cMagenta 3
+$null = Add-Line $s $bx $by ($mX + 409 * $k) $by $cMagenta 3 $true
+Set-Notes $s @"
+[2:30 com a demonstração] Abra o simulador ao vivo (abas já abertas antes de começar). Roteiro da demo:
+1. No menu, selecione o algoritmo dos NPCs.
+2. Inicie o jogo e clique no mapa: o caminho é traçado até o destino.
+3. Aperte D: aparecem a grade e os custos f de cada célula.
+4. Troque para o DFS-Greedy (tecla 4 no jogador, R nos inimigos) e mostre o caminho mais longo.
+5. Se houver tempo, volte ao menu e abra o modo benchmark (ele gera os dados dos próximos slides).
+Plano B: se a rede falhar, use este slide e diga que há uma gravação.
+"@
 
-# 15. OBSTÁCULOS (chart A)
-$s = New-ContentSlide "Obstáculos" "Resultados" 280
-Add-Image $s (Join-Path $charts 'chart_A.png') 25 125 570 320 | Out-Null
-Add-Rect $s 615 125 335 305 -1 $cMagenta 1.5 $true | Out-Null
-Add-Text $s 625 138 315 20 "DESTAQUES" 10 $cMagenta $true 'left' | Out-Null
-Add-Text $s 625 162 315 20 "20×20 · densidade 0,4" 10 $cTextMid $false 'left' | Out-Null
-Add-Text $s 625 184 315 22 "A*: 399 nós" 14 $cTextDk $false 'left' | Out-Null
-Add-Text $s 625 208 315 22 "JPS: 3 nós" 16 $cMagenta $true 'left' | Out-Null
-Add-Text $s 625 232 315 38 "−99,2%" 30 $cGold $true 'left' | Out-Null
-Add-Rect $s 625 275 305 1 (RGB 220 215 235) | Out-Null
-Add-Text $s 625 282 315 20 "Tempo médio · todos algoritmos" 10 $cTextMid $false 'left' | Out-Null
-Add-Text $s 625 302 315 25 "< 1 ms por busca" 16 $cOK $true 'left' | Out-Null
-Add-Text $s 625 326 315 18 "ordens de grandeza sob 16 ms/quadro" 10 $cTextMid $false 'left' | Out-Null
-Add-Rect $s 625 350 305 1 (RGB 220 215 235) | Out-Null
-Add-Text $s 625 357 315 20 "DFS (Greedy)" 10 $cTextMid $false 'left' | Out-Null
-Add-Text $s 625 378 315 22 "Caminho 15% mais longo" 12 $cErr $true 'left' | Out-Null
-Add-Text $s 625 400 315 18 "45 vs 39 células" 10 $cTextMid $false 'left' | Out-Null
-
-# 16. MÚLTIPLOS NPCs (chart B) — both chart & panel use Tabela 4 (30×30 corredor)
-$s = New-ContentSlide "Escalabilidade" "Resultados" 240
-Add-Image $s (Join-Path $charts 'chart_B.png') 25 125 570 320 | Out-Null
-Add-Rect $s 615 125 335 305 -1 $cOK 1.5 $true | Out-Null
-Add-Text $s 625 138 315 20 "ESCALABILIDADE LINEAR" 10 $cOK $true 'left' | Out-Null
-Add-Text $s 625 162 315 20 "Grade 30×30 · corredor central · dens. 0,2" 10 $cTextMid $false 'left' | Out-Null
-$ranks = @(
-    @{ a='DFS';      v='0,71 ms'; c=$cErr },
-    @{ a='BFS';      v='1,25 ms'; c=$cOK },
-    @{ a='A*';       v='1,28 ms'; c=$cTech },
-    @{ a='JPS';      v='1,71 ms'; c=$cMagenta },
-    @{ a='Dijkstra'; v='2,05 ms'; c=$cWarn }
+# ── 10. CENÁRIOS DE TESTE ────────────────────────────────────────────────────
+$s = New-ContentSlide 'Cenários de teste' 'Quatro cenários, quatro métricas, sementes fixas' $sec3
+$cen = @(
+    @{ t = 'Densidade de obstáculos'; d = 'Grade 20×20  ·  densidades 0,2 e 0,4' },
+    @{ t = 'Múltiplos NPCs';          d = 'Grade 20×20  ·  50 NPCs simultâneos' },
+    @{ t = 'Congestionamento';        d = 'Corredor 30×30  ·  5 a 50 NPCs' },
+    @{ t = 'Objetivos dinâmicos';     d = 'Grade 40×40  ·  3 destinos em série' }
 )
-$yb = 192
-foreach ($r in $ranks) {
-    Add-Text $s 625 $yb 130 26 $r.a 13 $r.c $true 'left' | Out-Null
-    Add-Text $s 760 $yb 175 26 $r.v 13 $cTextDk $true 'right' 'Consolas' | Out-Null
-    $yb += 30
+for ($i = 0; $i -lt 4; $i++) {
+    $x = 40 + ($i % 2) * 450
+    $y = 134 + [math]::Floor($i / 2) * 126
+    $null = Add-Card $s $x $y 430 112 $tGray
+    $null = Add-Rect $s ($x + 16) ($y + 18) 46 46 $cMagenta -1 0 $true 0.14
+    $null = Add-Text $s ($x + 16) ($y + 26) 46 "$($i + 1)" 24 $cWhite $true 'center'
+    $null = Add-Text $s ($x + 78) ($y + 13) 340 $cen[$i].t 26 $cPurple $true
+    $null = Add-Text $s ($x + 78) ($y + 56) 345 $cen[$i].d 22 $cTextMid
 }
-Add-Rect $s 625 350 305 1 (RGB 220 215 235) | Out-Null
-Add-Text $s 625 360 315 22 "Tempo cresce linearmente com N" 11 $cGold $true 'center' | Out-Null
-Add-Text $s 625 385 315 30 "Todos ficam bem abaixo de 16 ms (60 fps)" 11 $cOK $true 'center' | Out-Null
+$null = Add-Text $s 40 396 400 'MÉTRICAS' $szNote $cMagenta $true
+$null = Add-Text $s 40 420 790 'Tempo  ·  nós expandidos  ·  comprimento do caminho  ·  taxa de sucesso' $szBody $cTextDk $true
+Set-Notes $s @"
+[0:40] Quatro cenários: densidade de obstáculos em grade 20×20; múltiplos NPCs, com 50 buscas simultâneas; congestionamento, com todos convergindo para um corredor central em grade 30×30; e objetivos dinâmicos em grade 40×40, com replanejamento em três etapas. Em todos, as mesmas quatro métricas. Os resultados de 40×40 e de objetivos dinâmicos estão nos slides de apoio 26 e 29.
+"@
 
-# 17. CONGESTIONAMENTO (chart C)
-$s = New-ContentSlide "Congestionamento" "Resultados" 280
-Add-Image $s (Join-Path $charts 'chart_C.png') 25 125 570 320 | Out-Null
-Add-Rect $s 615 125 335 305 -1 $cWarn 1.5 $true | Out-Null
-Add-Text $s 625 138 315 20 "GARGALO 30×30" 10 $cWarn $true 'left' | Out-Null
-Add-Text $s 625 162 315 20 "Tempo médio com 50 NPCs" 10 $cTextMid $false 'left' | Out-Null
-Add-Text $s 625 186 315 24 "DFS:  0,71 ms  (menor)" 14 $cMagenta $true 'left' 'Consolas' | Out-Null
-Add-Text $s 625 213 315 24 "A*:   1,28 ms" 14 $cTech $true 'left' 'Consolas' | Out-Null
-Add-Text $s 625 240 315 24 "Dijkstra: 2,05 ms  (maior)" 13 $cWarn $false 'left' 'Consolas' | Out-Null
-Add-Rect $s 625 275 305 1 (RGB 220 215 235) | Out-Null
-Add-Text $s 625 285 315 20 "Conclusão prática" 11 $cGold $true 'left' | Out-Null
-Add-Text $s 625 310 315 110 "Mesmo com 50 NPCs no corredor, todos ficam bem abaixo de 16 ms. A diferença está no número de nós expandidos, não na viabilidade." 12 $cTextDk $false 'left' | Out-Null
-$s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Italic = $true
+# ── 11. NÓS EXPANDIDOS ───────────────────────────────────────────────────────
+$d4 = $D.dens20.d04
+$s = New-ContentSlide 'Nós expandidos' "Em grade densa, o JPS expande $($dv.jpsCut04F)% menos nós que o A*" $sec4
+$null = Add-Image $s (Join-Path $charts 'slide_nodes.png') 25 120 575 385 "Gráfico de barras, grade 20×20, densidade 0,4. Nós expandidos: A* $($d4.astar.nodesF), Dijkstra $($d4.dijkstra.nodesF), BFS $($d4.bfs.nodesF), DFS-Greedy $($d4.dfs.nodesF), JPS $($d4.jps.nodesF)."
+Add-StatCard $s $tMagenta $cMagenta "−$($dv.jpsCut04F)%" 58 "de nós expandidos: [[$($d4.astar.nodesF)]] no A*, [[$($d4.jps.nodesF)]] no JPS" "Mesmo caminho ótimo: [[$($d4.jps.pathF) células]]"
+Set-Notes $s @"
+[1:05] O resultado mais marcante. Grade 20×20 com densidade 0,4: A*, Dijkstra e BFS expandem $($d4.astar.nodesF) nós; o JPS, apenas $($d4.jps.nodesF). Redução de $($dv.jpsCut04F)%. Pause aqui.
+Por quê: obstáculos densos criam vizinhos forçados, e poucos pontos de salto ligam origem e destino. O caminho continua ótimo, $($d4.jps.pathF) células, igual ao do A*.
+Na densidade 0,2 a vantagem é menor: $($D.dens20.d02.jps.nodesF) contra $($D.dens20.d02.astar.nodesF) nós ($($dv.jpsCut02F)% a menos). Tabela completa: slide de apoio 25.
+"@
 
-# 18. COMPARATIVO GERAL (chart D)
-$s = New-ContentSlide "Comparativo" "Resultados" 220
-Add-Image $s (Join-Path $charts 'chart_D.png') 25 125 570 320 | Out-Null
-Add-Rect $s 615 125 335 305 -1 $cMagenta 1.5 $true | Out-Null
-Add-Text $s 625 138 315 20 "TRADE-OFFS" 10 $cMagenta $true 'left' | Out-Null
-$tradeoffs = @(
-    @{ t='JPS — vence em nós expandidos';     d='Redução de >99% em densidade alta; vantagem de tempo só em grades densas'; c=$cMagenta },
-    @{ t='A* — melhor equilíbrio geral';         d='Robusto · referência da literatura';                 c=$cTech },
-    @{ t='DFS Greedy — só velocidade ≫ qualidade'; d='Caminhos subótimos · 15% mais longos';            c=$cErr }
+# ── 12. ESCALABILIDADE ───────────────────────────────────────────────────────
+$c50 = $D.cong.n50
+$s = New-ContentSlide 'Escalabilidade' 'O tempo cresce linearmente e fica longe dos 16 ms/quadro' $sec4
+$null = Add-Image $s (Join-Path $charts 'slide_scale.png') 25 120 575 385 "Gráfico de linhas, corredor 30×30, densidade 0,2: tempo total por número de NPCs (5, 10, 20, 50). Com 50 NPCs: A* $($c50.astar.timeF) ms, JPS $($c50.jps.timeF) ms. Linha de referência: $BUDGET."
+Add-StatCard $s $tBlue $cBlueDk "$($dv.astarCong50PctF)%" 58 "do quadro: o A* resolve [[50 NPCs em $($c50.astar.timeF) ms]]" "O mais lento, $($dv.worstCong50.label): [[$($dv.worstCong50.timeF) ms]] ($($dv.worstCong50.pctF)% do quadro)"
+Set-Notes $s @"
+[0:55] Corredor 30×30 com 5 a 50 NPCs convergindo para o mesmo gargalo. O gráfico mostra só A*, JPS e o limite de $BUDGET. O tempo cresce em linha reta, porque cada NPC faz uma busca independente (o motor é single-thread). Com 50 NPCs o A* usa $($c50.astar.timeF) ms, $($dv.astarCong50PctF)% do quadro; o JPS, $($c50.jps.timeF) ms. Mesmo o mais lento, o $($dv.worstCong50.label), fica em $($dv.worstCong50.timeF) ms.
+Os cinco algoritmos juntos: slide de apoio 28. Tabela: slide 27.
+"@
+
+# ── 13. 50 NPCs ──────────────────────────────────────────────────────────────
+$e50 = $D.esc50
+$s = New-ContentSlide '50 NPCs simultâneos' 'Todos os algoritmos concluem as 50 buscas em menos de 2 ms' $sec4
+$null = Add-Image $s (Join-Path $charts 'slide_npc50.png') 25 120 575 385 "Gráfico de barras, grade 20×20, densidade 0,2, tempo das 50 buscas: A* $($e50.astar.timeF) ms, Dijkstra $($e50.dijkstra.timeF) ms, BFS $($e50.bfs.timeF) ms, DFS-Greedy $($e50.dfs.timeF) ms, JPS $($e50.jps.timeF) ms."
+Add-StatCard $s $tGreen $cOK '< 2 ms' 54 'para as 50 buscas, em [[qualquer]] dos cinco algoritmos' "Pior caso, $($dv.worstEsc50.label): [[$($dv.worstEsc50.pctF)% do quadro]] de 16 ms (60 fps)"
+Set-Notes $s @"
+[0:50] Grade 20×20, 50 buscas no mesmo quadro. Todos terminam em menos de 2 ms: DFS-Greedy $($e50.dfs.timeF), A* $($e50.astar.timeF), BFS $($e50.bfs.timeF), JPS $($e50.jps.timeF) e Dijkstra $($e50.dijkstra.timeF) ms. No pior caso, $($dv.worstEsc50.pctF)% do orçamento de $BUDGET.
+Conclusão prática: nestas escalas, a taxa de quadros não decide a escolha do algoritmo. Repare que o JPS não é o mais rápido aqui; é o assunto do próximo slide.
+"@
+
+# ── 14. TRADE-OFFS ───────────────────────────────────────────────────────────
+$s = New-ContentSlide 'Trade-offs' 'Nenhum algoritmo vence em tudo: a escolha depende do gargalo' $sec4
+$best = $tGreen
+$rows = @(
+    @( '50 NPCs  ·  grade 20×20', 'Nós expandidos', 'Tempo', 'Caminho' ),
+    @( @{ t = 'A*'; b = $true },         "$($e50.astar.nodesF)", "$($e50.astar.timeF) ms", @{ t = "$($e50.astar.pathF) células (ótimo)"; fill = $best; b = $true } ),
+    @( @{ t = 'JPS'; b = $true },        "$($e50.jps.nodesF)",   "$($e50.jps.timeF) ms",   @{ t = "$($e50.jps.pathF) células (ótimo)"; fill = $best; b = $true } ),
+    @( @{ t = 'DFS-Greedy'; b = $true }, @{ t = "$($e50.dfs.nodesF)"; fill = $best; b = $true }, @{ t = "$($e50.dfs.timeF) ms"; fill = $best; b = $true }, @{ t = "$($e50.dfs.pathF) células (+$($dv.dfsExtraPathF)%)"; c = $cErr; b = $true } )
 )
-$yb = 165
-foreach ($t in $tradeoffs) {
-    Add-Rect $s 625 ($yb + 8) 5 5 $t.c | Out-Null
-    Add-Text $s 638 $yb 295 22 $t.t 12 $t.c $true 'left' | Out-Null
-    Add-Text $s 638 ($yb + 22) 295 38 $t.d 10 $cTextMid $false 'left' | Out-Null
-    $yb += 75
+$tblTop = 132; $headH = 42; $rowH = 58
+$tb = Add-Table $s 40 $tblTop @(290, 190, 160, 240) $rows 22 $rowH 1 $headH
+$order = @('astar', 'jps', 'dfs')
+for ($r = 0; $r -lt 3; $r++) {
+    $tb.Table.Cell($r + 2, 1).Shape.TextFrame.MarginLeft = 38
+    $null = Add-Swatch $s 54 ($tblTop + $headH + $r * $rowH + ($rowH - 14) / 2) $algColor[$order[$r]]
 }
+$legY = $tblTop + $headH + 3 * $rowH + 12
+$null = Add-Rect $s 40 ($legY + 3) 18 18 $best -1 0 $true 0.2
+$null = Add-Text $s 66 $legY 400 'melhor valor da coluna' $szNote $cTextMid
+$null = Add-Bullets $s 40 ($legY + 40) 790 @(
+    '[[JPS:]] metade dos nós do A*, mas sem ganho de tempo em grade esparsa',
+    '[[DFS-Greedy:]] o mais rápido, com caminho mais longo'
+) $szBody 10
+Set-Notes $s @"
+[1:00] Leia por linha. A*: caminho ótimo e bom tempo, $($e50.astar.timeF) ms. JPS: expande metade dos nós do A* ($($e50.jps.nodesF) contra $($e50.astar.nodesF)) e ainda assim é mais lento, $($e50.jps.timeF) ms, porque nesta grade pequena e esparsa as sondagens de cada salto custam mais do que os nós poupados. DFS-Greedy: menos nós e menor tempo, $($e50.dfs.timeF) ms, mas o caminho tem $($e50.dfs.pathF) células contra $($e50.astar.pathF): $($dv.dfsExtraPathF)% mais longo.
+Se perguntarem por que o JPS não foi o mais rápido: slide de apoio 19.
+"@
 
-# 19. SECTION 05 — Conclusão
-New-SectionSlide "05 — Conclusão" | Out-Null
-
-# 20. CONCLUSÕES PRINCIPAIS
-$s = New-ContentSlide "Pontos-chave" "Conclusão" 240
+# ── 15. CONCLUSÕES ───────────────────────────────────────────────────────────
+$s = New-ContentSlide 'Conclusões' 'Todos são viáveis a 60 fps; o gargalo define a escolha' $sec5
 $concl = @(
-    @{ ic='✓'; t='Orçamento de 16 ms/quadro (60 fps) atendido';     d='Busca isolada em centésimos de ms — a estimativa inicial de 50 ms era folgada. Com 50 NPCs (20×20), todos os algoritmos ficam < 2 ms, folgadamente dentro do quadro'; c=$cOK },
-    @{ ic='✓'; t='JPS confirma vantagem em nós expandidos'; d='Redução de >99% nos nós em grades densas · em tempo, sua vantagem aparece em grades densas e iguala-se ao A* nas esparsas';                  c=$cMagenta },
-    @{ ic='✓'; t='A* segue como referência geral';     d='Melhor equilíbrio entre garantia de ótimo, uso de memória e desempenho · admissibilidade da heurística de Manhattan validada';  c=$cTech },
-    @{ ic='✗'; t='DFS puro inviável em tempo real';    d='Mesmo Greedy DFS produz caminhos 15% mais longos · usabilidade comprometida em jogos onde o caminho importa';                    c=$cErr }
+    @{ ic = '✓'; c = $cOK;      f = $tGreen;   t = "[[$BUDGET atendido:]] 50 NPCs em menos de 2 ms" },
+    @{ ic = '✓'; c = $cMagenta; f = $tMagenta; t = "[[JPS:]] até $($dv.jpsCut04IntF)% menos nós expandidos em grades densas" },
+    @{ ic = '✓'; c = $cBlueDk;  f = $tBlue;    t = '[[A*:]] melhor equilíbrio entre caminho ótimo e tempo' },
+    @{ ic = '✗'; c = $cErr;     f = $tRed;     t = "[[DFS-Greedy:]] o mais rápido, mas com caminho $($dv.dfsExtraPathF)% mais longo" }
 )
-$yb = 125
+$y = 134
 foreach ($c in $concl) {
-    Add-Rect $s 30 $yb 920 65 -1 $c.c 1 $true | Out-Null
-    Add-Rect $s 30 $yb 6 65 $c.c | Out-Null
-    Add-Text $s 50 ($yb + 12) 40 40 $c.ic 22 $c.c $true 'center' | Out-Null
-    Add-Text $s 95 ($yb + 8) 850 24 $c.t 13 $cTextDk $true 'left' | Out-Null
-    Add-Text $s 95 ($yb + 30) 850 35 $c.d 11 $cTextMid $false 'left' | Out-Null
-    $yb += 73
+    $null = Add-Card $s 40 $y 880 64 $c.f
+    $null = Add-Text $s 54 ($y + 9) 44 $c.ic 34 $c.c $true 'center'
+    $null = Add-Rich $s 112 ($y + 17) 790 $c.t $szBody
+    $y += 74
 }
+Set-Notes $s @"
+[1:10] Quatro respostas. Um: o orçamento de $BUDGET é atendido com folga; a estimativa inicial de 50 ms por busca do anteprojeto era folgada em mais de uma ordem de grandeza. Dois: o JPS confirma a vantagem em nós expandidos, acima de $($dv.jpsCut04IntF)% em grades densas; em tempo, só vence quando a grade é densa. Três: o A* segue como referência geral. Quatro: o DFS-Greedy é o mais rápido, mas não garante o ótimo.
+Frase de fechamento: nas escalas testadas, o gargalo não é a taxa de quadros; são os nós expandidos e a qualidade do caminho que decidem.
+"@
 
-# 21. LIMITAÇÕES E TRABALHOS FUTUROS
-$s = New-ContentSlide "Limitações" "Conclusão" 250
-# Limits
-Add-Text $s 30 130 440 22 "LIMITAÇÕES IDENTIFICADAS" 11 $cErr $true 'left' | Out-Null
-$limits = @(
-    @{ t='Sem detecção de conectividade prévia'; d='Buscas exaustivas quando o destino é inalcançável' },
-    @{ t='Custo escala com o número de agentes';        d='Linear; pode pesar em grades grandes ou replanejamento a cada quadro' },
-    @{ t='Hardware único';                         d='Resultados não generalizáveis a outros ambientes' }
+# ── 16. LIMITAÇÕES E FUTURO ──────────────────────────────────────────────────
+$s = New-ContentSlide 'Limitações e futuro' 'Cada limitação aponta um trabalho futuro' $sec5
+$null = Add-Text $s 40 132 410 'LIMITAÇÃO' $szNote $cErr $true
+$null = Add-Text $s 506 132 414 'TRABALHO FUTURO' $szNote $cOK $true
+$pairs = @(
+    @{ l = 'Destino inalcançável gera busca exaustiva';   f = 'Verificar conectividade antes de buscar' },
+    @{ l = 'A* refaz a busca inteira a cada mudança';     f = 'D* Lite: replanejamento incremental' },
+    @{ l = 'Custo cresce com agentes e tamanho do mapa';  f = 'HPA* e amortização entre quadros' }
 )
-$yb = 160
-foreach ($l in $limits) {
-    Add-Rect $s 30 ($yb + 6) 5 5 $cErr | Out-Null
-    Add-Text $s 45 $yb 430 22 $l.t 12 $cTextDk $true 'left' | Out-Null
-    Add-Text $s 45 ($yb + 22) 430 30 $l.d 10 $cTextMid $false 'left' | Out-Null
-    $yb += 60
+$y = 160
+foreach ($p in $pairs) {
+    $null = Add-Card $s 40 $y 410 78 $tRed
+    $tl = Add-Text $s 58 ($y + 10) 376 $p.l $szBody
+    $tl.Top = $y + (78 - $tl.Height) / 2
+    $null = Add-Line $s 456 ($y + 39) 500 ($y + 39) $cMagenta 3.5 $true
+    $null = Add-Card $s 506 $y 414 78 $tGreen
+    $tf2 = Add-Text $s 524 ($y + 10) 380 $p.f $szBody $cTextDk $true
+    $tf2.Top = $y + (78 - $tf2.Height) / 2
+    $y += 88
 }
-# Futures
-Add-Text $s 490 130 440 22 "DIREÇÕES FUTURAS" 11 $cGold $true 'left' | Out-Null
-$futures = @(
-    @{ t='D* Lite';               d='Replanejamento incremental proporcional às células afetadas · Koenig & Likhachev, 2002'; c=$cMagenta },
-    @{ t='HPA*';                  d='Hierarchical Pathfinding para mapas grandes com pré-cálculo entre regiões'; c=$cTech },
-    @{ t='Amortização temporal';  d='Replanejar N NPCs por frame em vez de todos · distribuir o custo'; c=$cOK }
-)
-$yb = 160
-foreach ($f in $futures) {
-    Add-Rect $s 490 $yb 6 50 $f.c | Out-Null
-    Add-Text $s 506 $yb 430 22 $f.t 13 $f.c $true 'left' | Out-Null
-    Add-Text $s 506 ($yb + 22) 430 30 $f.d 10 $cTextMid $false 'left' | Out-Null
-    $yb += 60
-}
+$null = Add-Text $s 40 426 780 'Os tempos vêm de um único hardware e não se generalizam a outros dispositivos.' $szNote $cTextMid
+Set-Notes $s @"
+[0:55] Três limitações, cada uma com a saída. Sem verificação prévia de conectividade, um destino isolado provoca busca exaustiva (foi a etapa 2 do teste dinâmico): basta checar a conectividade antes. O A* não tem memória: a cada mudança no mapa refaz a busca inteira; o D* Lite replaneja só o que mudou. E o custo cresce com o número de agentes e o tamanho do mapa: HPA* e amortização, replanejando parte dos NPCs por quadro.
+Além disso, os tempos foram medidos em um único hardware.
+Se perguntarem sobre ambientes dinâmicos: slide de apoio 21.
+"@
 
-# 22. OBRIGADO (thanks slide — duplicate template 10)
+# ── 17. OBRIGADO + QR CODES ──────────────────────────────────────────────────
 $s = Dup-Move $tplThanks
-# Template 10 has groups for "Obrigado" / "Thank you | Gracias" / social icons.
-# We'll leave the visual groups but add author/contact info on top.
-Add-Text $s 70 270 800 30 "Jeandeson Souza Nascimento" 16 -1 $true 'center' | Out-Null
-$s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Color.RGB = (RGB 255 255 255)
-Add-Text $s 70 300 800 20 "jeandeson.nascimento@bol.com.br" 12 -1 $false 'center' | Out-Null
-$s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Color.RGB = (RGB 240 220 250)
-Add-Text $s 70 425 800 18 "pathfinding-quest-j95b.vercel.app  ·  github.com/jeandeson/pathfinding-quest" 10 -1 $false 'center' 'Consolas' | Out-Null
-$s.Shapes.Item($s.Shapes.Count).TextFrame.TextRange.Font.Color.RGB = (RGB 240 220 250)
+$null = $deck.Add(@{ s = $s; kind = 'thanks'; section = '' })
+foreach ($g in @('Agrupar 9', 'Agrupar 12')) { $s.Shapes.Item($g).Delete() }     # ícones de redes do template dão lugar aos QR codes
+$null = Add-Text $s 80 282 800 'Jeandeson Souza Nascimento' 24 $cWhite $true 'center'
+$null = Add-Text $s 80 312 800 'jeandeson.nascimento@bol.com.br' $szNote (RGB 244 226 250) $false 'center'
+$qy = 352; $qs = 150
+$null = Add-Image $s (Join-Path $assets 'qr_simulador.png') 52 $qy $qs $qs 'QR code do simulador: https://pathfinding-quest-j95b.vercel.app/'
+$null = Add-Text $s 218 ($qy + 22) 220 'Simulador' 28 $cWhite $true
+$null = Add-Text $s 218 ($qy + 62) 220 "pathfinding-quest-j95b`r.vercel.app" $szNote (RGB 244 226 250)
+$null = Add-Image $s (Join-Path $assets 'qr_repositorio.png') 462 $qy $qs $qs 'QR code do repositório: https://github.com/jeandeson/pathfinding-quest'
+$null = Add-Text $s 628 ($qy + 22) 205 'Repositório' 28 $cWhite $true
+$null = Add-Text $s 628 ($qy + 62) 205 "github.com/jeandeson/`rpathfinding-quest" $szNote (RGB 244 226 250)
+Set-Notes $s @"
+[0:20] "Obrigado pela atenção. O simulador e o código estão nos QR codes: é só apontar a câmera do celular. Fico à disposição da banca."
+Deixe este slide na tela durante a arguição. Para ir a um slide de apoio, digite o número e Enter:
+19 por que o JPS não foi o mais rápido · 20 por que usar DFS · 21 A* em ambientes dinâmicos · 22 JPS em 4 direções · 23 e 24 código · 25 a 29 tabelas completas · 30 protocolo · 31 Manhattan · 32 por que 16 ms.
+"@
 
-# ─── Now delete the original 10 template slides (they live at indices 1..10).
-# Because we appended, our new slides are at 11..32. After deletion they shift
-# down to 1..22.
-Write-Output "Total slides before cleanup: $($pres.Slides.Count)"
-for ($k = 1; $k -le 10; $k++) {
-    $pres.Slides.Item(1).Delete()
+# ══════════════════════════════════════════════════════════════════════════════
+#  SLIDES DE APOIO (BACKUP)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 18. DIVISÓRIA ────────────────────────────────────────────────────────────
+$s = New-SectionSlide 'Slides de apoio' 'Respostas e dados completos para a arguição'
+Set-Notes $s 'Slides de apoio: não fazem parte da fala. Use o número do slide + Enter para ir direto ao assunto perguntado.'
+
+# ── 19. POR QUE O JPS NÃO FOI O MAIS RÁPIDO? ─────────────────────────────────
+$g2 = $D.dens40.d04
+$s = New-ContentSlide 'JPS × tempo' 'Por que o JPS não foi o mais rápido?' $secB
+$rows = @(
+    @( 'Cenário', 'A*', 'JPS', 'Resultado' ),
+    @( @{ t = 'Esparsa: 20×20, densidade 0,2'; sub = '50 NPCs' }, @{ t = "$($e50.astar.nodesF) nós"; sub = "$($e50.astar.timeF) ms" }, @{ t = "$($e50.jps.nodesF) nós"; sub = "$($e50.jps.timeF) ms" }, @{ t = 'JPS mais lento'; c = $cErr; b = $true } ),
+    @( @{ t = 'Densa: 40×40, densidade 0,4'; sub = '1 busca' },   @{ t = "$($g2.astar.nodesF) nós"; sub = "$($g2.astar.timeF) ms" }, @{ t = "$($g2.jps.nodesF) nós"; sub = "$($g2.jps.timeF) ms" },   @{ t = "JPS $($dv.jpsSpeedup40F)× mais rápido"; c = $cOK; b = $true } )
+)
+$null = Add-Table $s 40 130 @(330, 160, 160, 230) $rows 22 62 1 40
+$null = Add-Bullets $s 40 312 790 @(
+    'A cada célula do salto, o JPS de 4 direções faz [[2 sondagens laterais]]',
+    '[[Grade esparsa:]] sondagens longas custam mais que os nós poupados',
+    '[[Grade densa:]] os obstáculos encurtam as sondagens e o JPS vence'
+) $szBody 12
+Set-Notes $s @"
+Resposta curta: o JPS reduz nós expandidos, não necessariamente tempo. Na adaptação para 4 direções, cada célula percorrida pelo salto dispara duas sondagens perpendiculares. Em grade pequena e esparsa essas sondagens são longas e custam mais do que os nós poupados: $($e50.jps.timeF) ms contra $($e50.astar.timeF) ms do A*, mesmo com metade dos nós. Em grade densa os obstáculos encurtam as sondagens: em 40×40 com densidade 0,4 o JPS leva $($g2.jps.timeF) ms contra $($g2.astar.timeF) ms do A*.
+"@
+
+# ── 20. POR QUE USAR DFS? ────────────────────────────────────────────────────
+$s = New-ContentSlide 'DFS-Greedy' 'Por que incluir o DFS na comparação?' $secB
+$null = Add-Bullets $s 40 142 540 @(
+    'Contraponto clássico: busca [[sem garantia]] de caminho ótimo',
+    '[[DFS canônico:]] rotas incoerentes, inviável para NPCs em tempo real',
+    '[[Variante adotada (DFS-Greedy):]] vizinhos ordenados por Manhattan antes de empilhar'
+) $szBody 20 $cViolet
+$card = Add-Card $s 622 134 300 292 $tPurple
+$a1 = Add-Text $s 640 144 266 "$($e50.dfs.timeF) ms" 50 $cViolet $true
+$a2 = Add-Text $s 640 ($a1.Top + $a1.Height) 266 'o mais rápido com 50 NPCs' $szBody
+$a3 = Add-Text $s 640 ($a2.Top + $a2.Height + 14) 266 "$($dv.dfsPathF) × $($dv.optPathF)" 50 $cErr $true
+$a4 = Add-Text $s 640 ($a3.Top + $a3.Height) 266 "células: caminho $($dv.dfsExtraPathF)% mais longo que o ótimo" $szBody
+$card.Height = ($a4.Top + $a4.Height + 20) - 134
+Set-Notes $s @"
+Resposta curta: o DFS é a linha de base clássica e mostra, em números, o conflito entre velocidade de busca e qualidade do caminho. O DFS canônico (sem heurística) gerava rotas que se afastavam do objetivo, inviável para NPCs. Por isso a variante adotada, o DFS-Greedy: antes de empilhar, os vizinhos são ordenados pela distância de Manhattan, e o mais próximo do objetivo é expandido primeiro. Continua sem garantia de ótimo: é o mais rápido ($($e50.dfs.timeF) ms para 50 NPCs), com caminho de $($dv.dfsPathF) células contra $($dv.optPathF).
+Nota: a implementação usa conjunto de visitados e mapa cameFrom, ambos O(V); não preserva a vantagem clássica de memória do DFS.
+"@
+
+# ── 21. A* EM AMBIENTES DINÂMICOS ────────────────────────────────────────────
+$s = New-ContentSlide 'A* dinâmico' 'Qual é a limitação do A* em ambientes dinâmicos?' $secB
+$null = Add-Bullets $s 40 142 540 @(
+    '[[Sem memória:]] cada replanejamento refaz a busca inteira',
+    "50 NPCs a 60 fps são [[$($dv.replansPerSecF) buscas por segundo]]",
+    '[[Saídas:]] D* Lite, A* fatiado entre quadros e HPA*'
+) $szBody 20 $cBlue
+$card = Add-Card $s 622 134 300 292 $tBlue
+$a1 = Add-Text $s 640 144 266 "≈ $($dv.projMsF) ms" 50 $cBlueDk $true
+$a2 = Add-Text $s 640 ($a1.Top + $a1.Height) 266 'de 16 ms/quadro só com pathfinding' $szBody
+$a3 = Add-Text $s 640 ($a2.Top + $a2.Height + 14) 266 "Projeção: 50 NPCs × $($g2.astar.timeF) ms, grade 40×40, densidade 0,4, replanejando a cada quadro" 20 $cTextMid
+$card.Height = ($a3.Top + $a3.Height + 20) - 134
+Set-Notes $s @"
+Resposta curta: o A* implementado não tem memória. Cada chamada recria a lista aberta e o conjunto fechado e zera f, g e h de todas as células; mudou uma célula, recalcula tudo, com custo O((V+E) log V). Nas escalas medidas isso cabe com folga. Projetando: 50 NPCs replanejando a cada quadro em grade 40×40 com densidade 0,4 dão 50 × $($g2.astar.timeF) ms, cerca de $($dv.projMsF) ms dos 16 ms do quadro.
+Saídas: D* Lite (propaga só o que mudou), A* fatiado (limita expansões por quadro e persiste a busca) e HPA* (busca hierárquica).
+"@
+
+# ── 22. JPS EM 4 DIREÇÕES ────────────────────────────────────────────────────
+$s = New-ContentSlide 'JPS em 4 direções' 'Como o JPS foi adaptado para 4 direções?' $secB
+$c2 = 40; $gx = 40; $gy2 = 140
+for ($r = 0; $r -lt 5; $r++) {
+    for ($c = 0; $c -lt 7; $c++) {
+        $fill = RGB 247 246 251
+        if (($c -eq 4) -and (($r -eq 2) -or ($r -eq 3))) { $fill = $cPurple }
+        if (($c -eq 0) -and ($r -eq 2)) { $fill = RGB 246 190 218 }
+        if (($c -eq 3) -and ($r -eq 2)) { $fill = $cMagenta }
+        $null = Add-Rect $s ($gx + $c * $c2) ($gy2 + $r * $c2) $c2 $c2 $fill $cGridLn 0.75
+    }
 }
-Write-Output "Total slides after cleanup:  $($pres.Slides.Count)"
+$null = Add-Text $s $gx ($gy2 + 2 * $c2 + 7) $c2 'S' 20 $cMagenta $true 'center'
+$null = Add-Text $s ($gx + 3 * $c2) ($gy2 + 2 * $c2 + 7) $c2 'P' 20 $cWhite $true 'center'
+$rowMid = $gy2 + 2.5 * $c2
+$null = Add-Line $s ($gx + $c2 + 3) $rowMid ($gx + 3 * $c2 - 3) $rowMid $cMagenta 3.5 $true
+foreach ($c in 1, 2, 3) {                                   # sondagens perpendiculares
+    $cx = $gx + ($c + 0.5) * $c2
+    $null = Add-Line $s $cx ($gy2 + 2 * $c2 - 3) $cx ($gy2 + 8) $cBlueDk 2 $true 4
+    $null = Add-Line $s $cx ($gy2 + 3 * $c2 + 3) $cx ($gy2 + 5 * $c2 - 8) $cBlueDk 2 $true 4
+}
+$ly = $gy2 + 5 * $c2 + 12
+$null = Add-Line $s $gx ($ly + 12) ($gx + 34) ($ly + 12) $cMagenta 3.5 $true
+$null = Add-Text $s ($gx + 42) $ly 110 'salto' $szNote $cTextDk
+$null = Add-Line $s ($gx + 130) ($ly + 12) ($gx + 164) ($ly + 12) $cBlueDk 2 $true 4
+$null = Add-Text $s ($gx + 172) $ly 130 'sondagem' $szNote $cTextDk
+$null = Add-Bullets $s 350 142 572 @(
+    '[[Original]] (Harabor e Grastien, 2011): 8 direções, com diagonais',
+    '[[Adaptação:]] salto cardeal + sondagem perpendicular a cada célula',
+    '[[Ponto de salto (P):]] objetivo, vizinho forçado ou sondagem positiva',
+    '[[Otimalidade validada:]] mesmos comprimentos do A* em todos os testes'
+) $szBody 12
+Set-Notes $s @"
+O JPS original pressupõe 8 direções: a quebra de simetria entre caminhos diagonais é o cerne do método. Com movimento só cardeal, um ponto de curva em corredor aberto nunca seria detectado. A adaptação: ao saltar em uma direção, cada célula percorrida dispara uma sondagem linear nas duas direções perpendiculares; se a sondagem acha o objetivo ou uma célula com vizinho forçado, a célula atual vira ponto de salto. No desenho, a sondagem a partir de P encontra a passagem ao lado do obstáculo.
+Custo: uma sondagem por célula (por isso o JPS não é o mais rápido em grade esparsa). Como é uma adaptação, a otimalidade não é herdada da prova original: foi validada empiricamente, com comprimentos idênticos aos do A* em todos os cenários.
+"@
 
-# Save as final filename
+# ── 23. CÓDIGO: A* ───────────────────────────────────────────────────────────
+function Add-Code($slide, [double]$x, [double]$y, [double]$w, [string]$code, [double]$size = 18) {
+    $lines = ($code -split "`n").Count
+    $h = $lines * $size * 1.09 + 22
+    $null = Add-Rect $slide $x $y $w $h $tGray $cGridLn 1 $true 0.03
+    $tb = Add-Text $slide ($x + 16) ($y + 10) ($w - 28) ($code -replace "`n", "`r") $size $cTextDk $false 'left' 'Consolas'
+    $tb.TextFrame.TextRange.ParagraphFormat.SpaceWithin = 0.9
+    $tb.TextFrame.TextRange.ParagraphFormat.SpaceAfter = 0
+    $tb.TextFrame.TextRange.ParagraphFormat.SpaceBefore = 0
+    return $tb
+}
+$s = New-ContentSlide 'Código: A*' 'Laço principal do A* (PathfindingSystem.ts)' $secB
+$code = @'
+while (open.size > 0) {
+  const current = open.pop()!.cell;
+  if (closed.has(current)) continue;
+  if (current === goal) return this.buildPath(current);
+  closed.add(current);
+  this.nodesVisited++;
+  for (const nb of this.grid.getNeighbors(current)) {
+    if (closed.has(nb)) continue;
+    const g = current.g + 1;
+    if (!seen.has(nb) || g < nb.g) {
+      nb.parent = current;
+      nb.g = g;
+      nb.h = this.heuristic(nb, goal);
+      nb.f = nb.g + nb.h;
+      seen.add(nb);
+      open.push({ cell: nb, key: nb.f, seq: seq++ });
+    }
+  }
+}
+'@
+$null = Add-Code $s 40 122 600 ($code -replace "`r", '') 18
+$null = Add-Bullets $s 662 136 262 @(
+    '[[open:]] heap binário, extrai o menor f(n)',
+    '[[nodesVisited:]] conta os nós expandidos',
+    '[[h:]] distância de Manhattan'
+) 20 16 $cBlue
+Set-Notes $s 'Trecho real do repositório (src/pathfinding/PathfindingSystem.ts, método aStar), sem as linhas em branco. open é um heap binário com remoção preguiçosa (lazy deletion): entradas obsoletas são descartadas ao sair da fila. nodesVisited é incrementado quando o nó é extraído e expandido, de forma idêntica nos cinco algoritmos.'
+
+# ── 24. CÓDIGO: JPS ──────────────────────────────────────────────────────────
+$s = New-ContentSlide 'Código: JPS' 'Rotina de salto do JPS em 4 direções (jpsJump)' $secB
+$code = @'
+let cx = x + dx;
+let cy = y + dy;
+while (true) {
+  if (!this.grid.isValid(cx, cy) ||
+      !this.grid.cells[cy][cx].walkable) return null;
+  const cell = this.grid.cells[cy][cx];
+  if (cell === goal) return cell;
+  if (this.jpsHasForced(cx, cy, dx, dy)) return cell;
+  if (dx !== 0) {
+    if (this.jpsProbe(cx, cy, 0,  1, goal)) return cell;
+    if (this.jpsProbe(cx, cy, 0, -1, goal)) return cell;
+  } else {
+    if (this.jpsProbe(cx, cy,  1, 0, goal)) return cell;
+    if (this.jpsProbe(cx, cy, -1, 0, goal)) return cell;
+  }
+  cx += dx;
+  cy += dy;
+}
+'@
+$null = Add-Code $s 40 122 600 ($code -replace "`r", '') 18
+$null = Add-Bullets $s 662 136 262 @(
+    '[[null:]] obstáculo ou borda, sem salto',
+    '[[jpsHasForced:]] vizinho forçado',
+    '[[jpsProbe:]] sondagem perpendicular, a cada célula'
+) 20 16 $cMagenta
+Set-Notes $s 'Trecho real do repositório (método jpsJump), com uma quebra de linha a mais na primeira condição para caber no slide. A rotina avança uma célula por vez na direção (dx, dy). Devolve a célula se ela for o objetivo, se tiver vizinho forçado ou se uma sondagem perpendicular (jpsProbe) encontrar o objetivo ou um vizinho forçado. As sondagens a cada célula são o custo extra da adaptação para 4 direções.'
+
+# ── 25–26. TABELAS: DENSIDADE (20×20 e 40×40) ────────────────────────────────
+function Add-DensityTable($slide, $dens) {
+    $rows = New-Object System.Collections.ArrayList
+    $null = $rows.Add(@( '', '', '', '', '', '', '' ))
+    $null = $rows.Add(@( 'Algoritmo', 'Caminho', 'Nós exp.', 'Tempo (ms)', 'Caminho', 'Nós exp.', 'Tempo (ms)' ))
+    foreach ($a in $D.algos) {
+        $p = $dens.d02.($a.key); $q = $dens.d04.($a.key)
+        $null = $rows.Add(@( @{ t = $a.label; b = $true }, $p.pathF, $p.nodesF, $p.timeF, $q.pathF, $q.nodesF, $q.timeF ))
+    }
+    $al = @('left', 'center', 'center', 'center', 'center', 'center', 'center')
+    $mg = @( @{ r = 1; c1 = 2; c2 = 4; t = 'Densidade 0,2' }, @{ r = 1; c1 = 5; c2 = 7; t = 'Densidade 0,4' } )
+    return (Add-Table $slide 40 130 @(196, 104, 116, 122, 104, 116, 122) $rows.ToArray() 20 43 2 38 $al $mg)
+}
+$s = New-ContentSlide 'Tabela: grade 20×20' 'Densidade de obstáculos em grade 20×20 (1 busca por algoritmo)' $secB
+$null = Add-DensityTable $s $D.dens20
+Set-Notes $s "Tabelas 1 e 2 do artigo. Caminho em células. Destaques: na densidade 0,4 o JPS expande $($D.dens20.d04.jps.nodesF) nós contra $($D.dens20.d04.astar.nodesF) do A*; o DFS-Greedy acha $($D.dens20.d02.dfs.pathF) células na densidade 0,2 (ótimo: $($D.dens20.d02.astar.pathF)) e o caminho ótimo na densidade 0,4, onde as rotas viáveis são poucas."
+
+$s = New-ContentSlide 'Tabela: grade 40×40' "Em grade maior e densa, o JPS vence também em tempo: $($g2.jps.timeF) × $($g2.astar.timeF) ms" $secB
+$null = Add-DensityTable $s $D.dens40
+Set-Notes $s "Resultados de 40×40 (benchmark_results.csv). Na densidade 0,4 o JPS expande $($g2.jps.nodesF) nós contra $($g2.astar.nodesF) do A* e é cerca de $($dv.jpsSpeedup40F) vezes mais rápido ($($g2.jps.timeF) contra $($g2.astar.timeF) ms). Na densidade 0,2 o JPS expande menos nós ($($D.dens40.d02.jps.nodesF) contra $($D.dens40.d02.astar.nodesF)), mas é mais lento ($($D.dens40.d02.jps.timeF) contra $($D.dens40.d02.astar.timeF) ms): mesma leitura do slide 19."
+
+# ── 27. TABELA: MÚLTIPLOS NPCs ───────────────────────────────────────────────
+$s = New-ContentSlide 'Tabela: múltiplos NPCs' 'Tempo total das buscas; todos abaixo de 16 ms/quadro (60 fps)' $secB
+$rows = New-Object System.Collections.ArrayList
+$null = $rows.Add(@( '', '', '', '', '', '', '', '' ))
+$null = $rows.Add(@( 'Algoritmo', 'Caminho', 'Nós exp.', 'Tempo', '5', '10', '20', '50' ))
+foreach ($a in $D.algos) {
+    $p = $e50.($a.key)
+    $null = $rows.Add(@( @{ t = $a.label; b = $true }, $p.pathF, $p.nodesF, $p.timeF,
+        $D.cong.n5.($a.key).timeF, $D.cong.n10.($a.key).timeF, $D.cong.n20.($a.key).timeF, $D.cong.n50.($a.key).timeF ))
+}
+$al = @('left', 'center', 'center', 'center', 'center', 'center', 'center', 'center')
+$mg = @( @{ r = 1; c1 = 2; c2 = 4; t = '20×20  ·  50 NPCs (ms)' }, @{ r = 1; c1 = 5; c2 = 8; t = 'Corredor 30×30: NPCs (ms)' } )
+$null = Add-Table $s 40 130 @(196, 104, 116, 100, 91, 91, 91, 91) $rows.ToArray() 20 43 2 38 $al $mg
+Set-Notes $s "Tabelas 3 e 5 do artigo. À esquerda, 50 NPCs em grade 20×20 (densidade 0,2): caminho em células, nós expandidos somados e tempo total. À direita, o corredor 30×30 com 5, 10, 20 e 50 NPCs: o tempo dobra quando o número de NPCs dobra (crescimento linear). Maior valor da tabela: $($dv.worstCong50.label), $($dv.worstCong50.timeF) ms."
+
+# ── 28. ESCALABILIDADE: OS 5 ALGORITMOS ──────────────────────────────────────
+$s = New-ContentSlide 'Escalabilidade: os 5' 'Os cinco algoritmos crescem em linha reta com o número de NPCs' $secB
+$null = Add-Image $s (Join-Path $charts 'slide_scale5.png') 40 122 790 370 "Gráfico de linhas, corredor 30×30, densidade 0,2, eixo de 0 a 2,5 ms. Com 50 NPCs: Dijkstra $($c50.dijkstra.timeF) ms, JPS $($c50.jps.timeF) ms, A* $($c50.astar.timeF) ms, BFS $($c50.bfs.timeF) ms, DFS-Greedy $($c50.dfs.timeF) ms."
+Set-Notes $s "Mesmo cenário do slide 12, agora com os cinco algoritmos e o eixo ampliado (0 a 2,5 ms); a linha de 16 ms ficaria muito acima do gráfico. Cada série tem cor, traço e marcador próprios. A* e BFS praticamente coincidem ($($c50.astar.timeF) e $($c50.bfs.timeF) ms com 50 NPCs)."
+
+# ── 29. TABELA: OBJETIVOS DINÂMICOS ──────────────────────────────────────────
+$s = New-ContentSlide 'Objetivos dinâmicos' 'Etapa 2: destino isolado, busca exaustiva e nenhum caminho' $secB
+$rows = New-Object System.Collections.ArrayList
+$null = $rows.Add(@( 'Algoritmo', 'Etapa', 'Destino', 'Caminho', 'Nós exp.', 'Tempo (ms)' ))
+foreach ($k in 'astar', 'dijkstra', 'jps') {
+    $label = ($D.algos | Where-Object { $_.key -eq $k }).label
+    foreach ($e in 1, 2, 3) {
+        $p = $D.dyn.$k."e$e"
+        $first = ''
+        if ($e -eq 1) { $first = $label }
+        if ($e -eq 2) {
+            $null = $rows.Add(@( @{ t = $first; b = $true }, @{ t = "$e"; fill = $tRed }, @{ t = $D.dynGoals."e$e"; fill = $tRed }, @{ t = $p.pathF; fill = $tRed; c = $cErr; b = $true }, @{ t = $p.nodesF; fill = $tRed }, @{ t = $p.timeF; fill = $tRed } ))
+        } else {
+            $null = $rows.Add(@( @{ t = $first; b = $true }, "$e", $D.dynGoals."e$e", $p.pathF, $p.nodesF, $p.timeF ))
+        }
+    }
+}
+$al = @('left', 'center', 'center', 'center', 'center', 'center')
+$null = Add-Table $s 40 126 @(170, 90, 125, 155, 115, 125) $rows.ToArray() 20 34 1 36 $al
+Set-Notes $s "Tabela 6 do artigo: grade 40×40, densidade 0,25, três destinos em sequência. Na etapa 2 o destino (20,20) está isolado pelos obstáculos: os três algoritmos varrem todo o espaço alcançável ($($D.dyn.astar.e2.nodesF) nós no A*) e respondem, corretamente, que não há caminho. É a limitação 1 do slide 16: sem verificação prévia de conectividade, o destino inalcançável custa uma busca exaustiva. Nas etapas 1 e 3, os comprimentos são idênticos entre os algoritmos ($($D.dyn.astar.e1.pathF) e $($D.dyn.astar.e3.pathF) células)."
+
+# ── 30. PROTOCOLO DE MEDIÇÃO ─────────────────────────────────────────────────
+$s = New-ContentSlide 'Protocolo de medição' 'Como medir buscas mais rápidas que o relógio do navegador' $secB
+$null = Add-Bullets $s 40 142 790 @(
+    '[[Relógio:]] performance.now() no Chrome tem resolução de cerca de 0,1 ms',
+    '[[Lote:]] a busca é repetida K vezes, até a janela passar de 25 ms',
+    '[[Tempo por busca]] = janela ÷ K, após aquecimento do JIT',
+    '[[10 janelas]] por cenário: média e desvio-padrão',
+    "[[Desvio-padrão:]] abaixo de $($dv.stdSingleF) ms (1 busca) e de $($dv.stdMultiF) ms (vários NPCs)"
+) $szBody 16
+Set-Notes $s 'O Chrome limita a resolução de performance.now() a cerca de 100 microssegundos (mitigação contra Spectre). Uma busca isolada dura menos que isso. Solução: medição em lote, com K calibrado automaticamente até a janela passar de 25 ms; o tempo por busca é a janela dividida por K. Antes de medir, repetições de aquecimento são descartadas para o JIT do V8 estabilizar. O benchmark roda em página isolada (benchmark.html), sem o laço de renderização do jogo. A contagem de nós expandidos é feita dentro do PathfindingSystem, igual para todos os algoritmos.'
+
+# ── 31. HEURÍSTICA DE MANHATTAN ──────────────────────────────────────────────
+$s = New-ContentSlide 'Heurística de Manhattan' 'Por que a heurística de Manhattan é admissível?' $secB
+$null = Add-Card $s 40 134 880 86 $tBlue
+$null = Add-Text $s 40 152 880 'h(n) = |Δx| + |Δy|  ≤  custo real' 38 $cBlueDk $true 'center' 'Consolas'
+$null = Add-Bullets $s 40 244 790 @(
+    'Cada passo cardeal reduz a distância em [[no máximo 1]]: h(n) nunca superestima',
+    '[[Consistente:]] h(n) ≤ 1 + h(n′) entre células vizinhas',
+    "[[Na prática:]] A*, Dijkstra, BFS e JPS acharam caminhos de $($dv.optPathF) células"
+) $szBody 16 $cBlue
+Set-Notes $s "Objetivo específico 5. Em grade de 4 direções cada passo cobre uma unidade em uma direção cardeal; para ir de n ao objetivo são necessários pelo menos |Δx| + |Δy| passos. Logo h(n) nunca superestima o custo real: é admissível. Também é consistente, pela desigualdade triangular da norma L1: h(n) ≤ 1 + h(n′). Com isso o A* devolve o caminho de custo mínimo. Evidência experimental: A*, Dijkstra, BFS e JPS produziram caminhos de mesmo comprimento em todos os cenários ($($dv.optPathF) células em 20×20)."
+
+# ── 32. POR QUE 16 ms/QUADRO? ────────────────────────────────────────────────
+$s = New-ContentSlide '16 ms/quadro' 'De onde vem o orçamento de 16 ms/quadro (60 fps)?' $secB
+$null = Add-Card $s 40 134 880 86 $tGreen
+$null = Add-Text $s 40 152 880 "1000 ms ÷ 60 quadros ≈ $($dv.frameExactF) ms" 38 $cOK $true 'center' 'Consolas'
+$null = Add-Bullets $s 40 244 790 @(
+    "[[Adotado: $BUDGET]], arredondado para baixo (conservador)",
+    'O quadro também paga renderização, lógica do jogo e áudio',
+    "[[Pior caso medido:]] $($dv.worstCong50.timeF) ms com 50 NPCs, $($dv.worstCong50.pctF)% do quadro",
+    'A estimativa inicial de 50 ms por busca era folgada demais'
+) $szBody 16 $cOK
+Set-Notes $s "A 60 quadros por segundo, cada quadro dura 1000 ÷ 60 ≈ $($dv.frameExactF) ms. O trabalho adota $BUDGET, arredondando para baixo (critério mais exigente). O orçamento é compartilhado: todas as buscas do quadro, mais renderização, lógica e entrada. No pior caso medido, 50 NPCs no corredor com $($dv.worstCong50.label), o pathfinding usa $($dv.worstCong50.timeF) ms, $($dv.worstCong50.pctF)% do quadro. A estimativa de 50 ms por busca do anteprojeto misturava escalas: uma busca isolada custa centésimos de milissegundo."
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Acabamento: indicador de seção e número do slide; remoção do template
+# ══════════════════════════════════════════════════════════════════════════════
+for ($i = 0; $i -lt $deck.Count; $i++) {
+    $e = $deck[$i]
+    if ($e.kind -ne 'content') { continue }
+    if ($e.section -ne '') { $null = Add-Text $e.s 640 20 292 $e.section $szNote $cTextMid $true 'right' }
+    $null = Add-Text $e.s 14 508 60 "$($i + 1)" $szNote $cTextMid
+}
+
+Write-Output "Slides antes da limpeza: $($pres.Slides.Count)"
+for ($k = 1; $k -le 10; $k++) { $pres.Slides.Item(1).Delete() }
+Write-Output "Slides finais:           $($pres.Slides.Count)  (registro: $($deck.Count))"
+if ($pres.Slides.Count -ne $deck.Count) { throw 'Contagem de slides inesperada' }
+
 if (Test-Path $outFinal) { Remove-Item $outFinal -Force }
-$pres.SaveAs($outFinal, 24)   # 24 = ppSaveAsOpenXMLPresentation (.pptx)
-$pres.Close()
-$ppt.Quit()
-[System.Runtime.Interopservices.Marshal]::ReleaseComObject($ppt) | Out-Null
-Remove-Item $workCopy -ErrorAction SilentlyContinue
+$pres.SaveAs($outFinal, 24)        # 24 = .pptx
 Write-Output "DONE: $outFinal"
+
+} finally {
+    try { $pres.Close() } catch {}
+    if ($hadOpen -eq 0) { try { $ppt.Quit() } catch {} }
+    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($ppt) | Out-Null
+    Remove-Item $workCopy -ErrorAction SilentlyContinue
+}

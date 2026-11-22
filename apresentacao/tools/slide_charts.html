@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Gráficos dos slides (legibilidade de projeção)</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #FFFFFF; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="chart"></canvas>
+
+<script src="chart.umd.js"></script>
+<script src="chart_data.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Gráficos dos SLIDES. Diferem das figuras do artigo (chart.html) só na forma:
+//   • fundo branco, o mesmo do slide (sem caixa escura);
+//   • 1 px CSS = 1 pt no slide: a página é renderizada no tamanho exato em que o
+//     PNG entra no PowerPoint (?w=&h=), então "font 20px" = 20 pt projetados;
+//   • nenhum texto abaixo de 18 pt; valores em 22 pt;
+//   • linhas de 5 px, marcadores e tracejados diferentes por série, rótulos
+//     diretos — a identidade nunca depende só da cor.
+// Os dados vêm SEMPRE de chart_data.js (gerado do benchmark_results.csv).
+// ─────────────────────────────────────────────────────────────────────────────
+const Q  = new URLSearchParams(location.search);
+const ID = Q.get('id') || 'nodes';
+const W  = +(Q.get('w') || 575);
+const H  = +(Q.get('h') || 385);
+const CD = window.CHART_DATA;
+
+const cv = document.getElementById('chart');
+cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+
+const INK   = '#1E143C';                 // texto principal (mesmo roxo-escuro do slide)
+const MUTED = '#5A5078';                 // texto secundário
+const GRID  = 'rgba(30,20,60,0.13)';
+const FONT  = 'Calibri, "Segoe UI", Arial, sans-serif';
+const brfmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',');
+const brint = (v) => v.toLocaleString('pt-BR');
+
+// Paleta categórica validada (dataviz/validate_palette.js, superfície clara):
+// separação para daltonismo ΔE ≥ 9,2 entre vizinhos; rótulo direto em todas.
+const SERIES = {
+  'A*':       { label: 'A*',         color: '#2a78d6', point: 'circle',   dash: [] },
+  'Dijkstra': { label: 'Dijkstra',   color: '#eb6834', point: 'triangle', dash: [14, 6] },
+  'BFS':      { label: 'BFS',        color: '#1baf7a', point: 'rectRot',  dash: [3, 5] },
+  'DFS':      { label: 'DFS-Greedy', color: '#6250d6', point: 'rectRounded', dash: [16, 5, 3, 5] },
+  'JPS':      { label: 'JPS',        color: '#cf0d72', point: 'rect',     dash: [10, 6] },
+};
+const ALGOS = CD.chartA.algos;           // ordem fixa: A*, Dijkstra, BFS, DFS, JPS
+
+Chart.defaults.color = INK;
+Chart.defaults.font.family = FONT;
+Chart.defaults.font.size = 18;
+Chart.defaults.animation = false;
+
+const tick  = (extra = {}) => ({ color: INK, font: { size: 18 }, ...extra });
+const title = (text) => ({ display: true, text, color: MUTED, font: { size: 18, weight: '600' }, padding: 6 });
+
+// ── Plugins de desenho ───────────────────────────────────────────────────────
+const txt = (ctx, s, x, y, { size = 20, weight = 'bold', color = INK, align = 'left', base = 'middle' } = {}) => {
+  ctx.save();
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  ctx.fillText(s, x, y);
+  ctx.restore();
+};
+
+// Valor em cima de cada barra.
+const barLabels = {
+  id: 'barLabels',
+  afterDatasetsDraw(chart, _a, opts) {
+    if (!opts || !opts.format) return;
+    const meta = chart.getDatasetMeta(0);
+    meta.data.forEach((bar, i) => {
+      txt(chart.ctx, opts.format(chart.data.datasets[0].data[i], i), bar.x, bar.y - 8, { size: opts.size || 22, align: 'center', base: 'bottom' });
+    });
+  },
+};
+
+// Subtítulo (contexto do cenário) no canto superior esquerdo da área de plotagem.
+const corner = {
+  id: 'corner',
+  afterDraw(chart, _a, opts) {
+    if (!opts || !opts.text) return;
+    txt(chart.ctx, opts.text, chart.chartArea.left + (opts.dx || 0), (opts.y ?? 14), { size: 18, weight: '600', color: MUTED });
+  },
+};
+
+// Linha de referência horizontal (orçamento do quadro), rotulada diretamente.
+const hLine = {
+  id: 'hLine',
+  afterDatasetsDraw(chart, _a, opts) {
+    if (!opts || opts.value == null) return;
+    const { ctx, chartArea: a, scales } = chart;
+    const y = scales.y.getPixelForValue(opts.value);
+    ctx.save();
+    ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.setLineDash([12, 7]);
+    ctx.beginPath(); ctx.moveTo(a.left, y); ctx.lineTo(a.right, y); ctx.stroke();
+    ctx.restore();
+    txt(ctx, opts.label, a.left + 10, y - 9, { size: 20, base: 'bottom' });
+  },
+};
+
+// Rótulo direto no fim de cada linha: amostra do traço + marcador + "Nome valor".
+// Rótulos próximos são afastados na vertical (nunca se sobrepõem).
+const endLabels = {
+  id: 'endLabels',
+  afterDatasetsDraw(chart, _a, opts) {
+    if (!opts || !opts.on) return;
+    const { ctx } = chart;
+    const gap = opts.gap || 26;
+    const items = chart.data.datasets.map((ds, i) => {
+      const pts = chart.getDatasetMeta(i).data;
+      const p = pts[pts.length - 1];
+      return { ds, x: p.x, y0: p.y, y: p.y, value: ds.data[ds.data.length - 1].y };
+    }).sort((a, b) => a.y0 - b.y0);
+    // empurra para baixo o que colidir; depois recentra o bloco em torno das âncoras
+    for (let i = 1; i < items.length; i++) if (items[i].y - items[i - 1].y < gap) items[i].y = items[i - 1].y + gap;
+    const drift = items.reduce((s, it) => s + (it.y - it.y0), 0) / items.length;
+    const floor = chart.chartArea.bottom - 6;
+    items.forEach(it => { it.y -= drift; });
+    const over = items[items.length - 1].y - floor;
+    if (over > 0) items.forEach(it => { it.y -= over; });
+    for (const it of items) {
+      const x0 = it.x + 16;
+      ctx.save();
+      // fio fino ligando o último ponto ao rótulo deslocado
+      ctx.strokeStyle = 'rgba(30,20,60,0.35)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(it.x + 9, it.y0); ctx.lineTo(x0, it.y); ctx.stroke();
+      // amostra do traço (mesma cor, espessura e tracejado da série)
+      ctx.strokeStyle = it.ds.borderColor; ctx.lineWidth = 4; ctx.setLineDash(it.ds.borderDash || []);
+      ctx.beginPath(); ctx.moveTo(x0, it.y); ctx.lineTo(x0 + 26, it.y); ctx.stroke();
+      ctx.restore();
+      txt(ctx, `${it.ds.label}  ${brfmt(it.value)} ms`, x0 + 34, it.y + 1, { size: opts.size || 20 });
+    }
+  },
+};
+
+// Anotação grande em caixa, com seta até a barra-alvo (slide "Nós expandidos").
+const callout = {
+  id: 'callout',
+  afterDatasetsDraw(chart, _a, opts) {
+    if (!opts || !opts.lines) return;
+    const { ctx, chartArea: a } = chart;
+    const bar = chart.getDatasetMeta(0).data[opts.index];
+    const w = opts.w, h = opts.h;
+    const x = Math.min(a.right - w, bar.x - w / 2 + (opts.dx || 0));
+    const y = a.top + (opts.top || 40);
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = opts.color; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, 12); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    opts.lines.forEach((l, i) => txt(ctx, l.text, x + w / 2, y + l.y, { size: l.size, align: 'center', color: i === 0 ? INK : opts.color }));
+    // seta: do pé da caixa até logo acima do valor da barra
+    const tipY = bar.y - 40, ax = bar.x;
+    ctx.save();
+    ctx.strokeStyle = opts.color; ctx.fillStyle = opts.color; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(ax, y + h); ctx.lineTo(ax, tipY - 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax, tipY); ctx.lineTo(ax - 10, tipY - 16); ctx.lineTo(ax + 10, tipY - 16); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  },
+};
+// Seta dupla "folga": da série mais lenta até a linha de referência.
+const slack = {
+  id: 'slack',
+  afterDatasetsDraw(chart, _a, opts) {
+    if (!opts || opts.ref == null) return;
+    const { ctx, scales } = chart;
+    const worst = Math.max(...chart.data.datasets.map(ds => ds.data[ds.data.length - 1].y));
+    const x  = scales.x.getPixelForValue(opts.at);
+    const y1 = scales.y.getPixelForValue(opts.ref) + 8;
+    const y2 = scales.y.getPixelForValue(worst * opts.at / scales.x.max) - 22;
+    ctx.save();
+    ctx.strokeStyle = MUTED; ctx.fillStyle = MUTED; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x, y1 + 10); ctx.lineTo(x, y2 - 10); ctx.stroke();
+    for (const [y, d] of [[y1, 1], [y2, -1]]) {
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 7, y + 13 * d); ctx.lineTo(x + 7, y + 13 * d); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    txt(ctx, `folga de ${Math.floor(opts.ref / worst)}× ou mais`, x - 14, (y1 + y2) / 2, { size: 20, align: 'right', color: MUTED });
+  },
+};
+Chart.register(barLabels, corner, hLine, endLabels, callout, slack);
+
+const bars = (values) => ({
+  labels: ALGOS.map(a => SERIES[a].label),
+  datasets: [{
+    data: values,
+    backgroundColor: ALGOS.map(a => SERIES[a].color),
+    borderRadius: { topLeft: 5, topRight: 5 },
+    borderSkipped: 'bottom',
+    barPercentage: 0.82, categoryPercentage: 0.8,
+    minBarLength: 5,   // a barra de 3 nós do JPS não some; o valor exato vai no rótulo
+  }],
+});
+const base = (extra) => ({
+  responsive: false, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { display: false }, tooltip: { enabled: false }, title: { display: false }, ...extra.plugins },
+  layout: { padding: extra.padding },
+  scales: extra.scales,
+});
+const catAxis = { grid: { display: false }, border: { color: INK, width: 1.5 },
+                  ticks: tick({ font: { size: 20, weight: '700' }, maxRotation: 0, minRotation: 0, autoSkip: false }) };
+
+// ── Gráficos ─────────────────────────────────────────────────────────────────
+
+// Slide "Nós expandidos" — 20×20, densidade 0,4 (Tabela 2 do artigo).
+function nodes() {
+  const v = CD.chartA.d04, iA = ALGOS.indexOf('A*'), iJ = ALGOS.indexOf('JPS');
+  const cut = (v[iA] - v[iJ]) / v[iA] * 100;
+  return new Chart(cv, {
+    type: 'bar',
+    data: bars(v),
+    options: base({
+      padding: { top: 46, right: 12, bottom: 0, left: 4 },
+      plugins: {
+        barLabels: { format: x => brint(x) },
+        corner: { text: 'Grade 20×20 · densidade 0,4' },
+        callout: {
+          index: iJ, color: SERIES.JPS.color, w: 186, h: 92, top: 30,
+          lines: [
+            { text: `JPS: ${v[iJ]} nós`, size: 28, y: 31 },
+            { text: `(−${brfmt(cut, 1)}%)`,  size: 28, y: 64 },
+          ],
+        },
+      },
+      scales: {
+        x: catAxis,
+        y: { beginAtZero: true, max: 450, border: { display: false },
+             grid: { color: (c) => (c.tick.value % 100 === 0 ? GRID : 'transparent') },
+             ticks: tick({ stepSize: 100, callback: v => (v % 100 === 0 ? v : '') }), title: title('Nós expandidos') },
+      },
+    }),
+  });
+}
+
+function lineSet(a, width) {
+  const s = SERIES[a];
+  return {
+    label: s.label,
+    data: CD.chartB.npcs.map((n, i) => ({ x: n, y: CD.chartB.series[a][i] })),
+    borderColor: s.color, backgroundColor: s.color,
+    borderWidth: width, borderDash: s.dash, borderCapStyle: 'round',
+    pointStyle: s.point, pointRadius: width >= 5 ? 7 : 8, pointBorderColor: '#FFFFFF', pointBorderWidth: 2,
+    tension: 0,
+  };
+}
+const npcAxis = () => ({
+  type: 'linear', min: 0, max: 52,
+  afterBuildTicks: (ax) => { ax.ticks = CD.chartB.npcs.map(v => ({ value: v })); },
+  grid: { display: false }, border: { color: INK, width: 1.5 },
+  ticks: tick({ font: { size: 20, weight: '700' } }), title: title('NPCs simultâneos'),
+});
+
+// Slide "Escalabilidade" — só A*, JPS e a linha de 16 ms (corredor 30×30, Tabela 5).
+function scale() {
+  return new Chart(cv, {
+    type: 'line',
+    data: { datasets: ['JPS', 'A*'].map(a => lineSet(a, 5)) },
+    options: base({
+      padding: { top: 40, right: 168, bottom: 0, left: 4 },
+      plugins: {
+        corner: { text: 'Corredor 30×30 · densidade 0,2' },
+        hLine: { value: CD.meta.frameBudgetMs, label: `${CD.meta.frameBudgetMs} ms/quadro (${CD.meta.fps} fps)` },
+        endLabels: { on: true, size: 20, gap: 28 },
+        slack: { ref: CD.meta.frameBudgetMs, at: 38 },
+      },
+      scales: {
+        x: npcAxis(),
+        y: { min: 0, max: 18, grid: { color: GRID }, border: { display: false }, ticks: tick({ stepSize: 4 }), title: title('Tempo total (ms)') },
+      },
+    }),
+  });
+}
+
+// Backup — os cinco algoritmos no mesmo cenário, com eixo ampliado (0–2,5 ms).
+function scale5() {
+  return new Chart(cv, {
+    type: 'line',
+    data: { datasets: ALGOS.map(a => lineSet(a, 4)) },
+    options: base({
+      padding: { top: 40, right: 222, bottom: 0, left: 4 },
+      plugins: {
+        corner: { text: 'Corredor 30×30 · densidade 0,2 · eixo ampliado' },
+        endLabels: { on: true, size: 19, gap: 30 },
+      },
+      scales: {
+        x: npcAxis(),
+        y: { min: 0, max: 2.5, grid: { color: GRID }, border: { display: false },
+             ticks: tick({ stepSize: 0.5, callback: v => brfmt(v, 1) }), title: title('Tempo total (ms)') },
+      },
+    }),
+  });
+}
+
+// Slide "50 NPCs" — 20×20, densidade 0,2 (Tabela 3).
+function npc50() {
+  const top = 2;
+  return new Chart(cv, {
+    type: 'bar',
+    data: bars(CD.chartD.values),
+    options: base({
+      padding: { top: 46, right: 12, bottom: 0, left: 4 },
+      plugins: {
+        barLabels: { format: x => brfmt(x) + ' ms', size: 21 },
+        corner: { text: 'Grade 20×20 · densidade 0,2' },
+      },
+      scales: {
+        x: catAxis,
+        y: { beginAtZero: true, max: top, grid: { color: GRID }, border: { display: false },
+             ticks: tick({ stepSize: 0.5, callback: v => brfmt(v, 1) }), title: title('Tempo das 50 buscas (ms)') },
+      },
+    }),
+  });
+}
+
+const fn = { nodes, scale, scale5, npc50 }[ID];
+if (!fn) throw new Error('gráfico desconhecido: ' + ID);
+window.__chart = fn();
+window.__ready = true;
+</script>
+</body>
+</html>

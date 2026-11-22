@@ -1,228 +1,250 @@
 # Roteiro de Apresentação — Defesa do TCC
-### Slide a slide: o que falar, em que ordem, com qual transição
+### Versão pós-devolutiva de 18/09/2026: 17 slides principais + slides de apoio
 
-> **Tempo-alvo:** ~15–18 min de fala + demo. Ritmo: ~40–50 s por slide de conteúdo, mais rápido nas capas de seção.
-> **Regra de ouro:** o slide é apoio, não roteiro. **Olhe para a banca, não para a tela.** Nunca leia o slide — comente-o.
-> **Como usar:** a parte "🎙️ Fala" é o que dizer (não decore palavra por palavra, capte a ideia). "⏱️" é o tempo sugerido. "➡️ Transição" é a ponte para o próximo slide.
-
----
-
-## ABERTURA (antes do slide 1)
-Respire. Cumprimente a banca:
-> "Bom dia/boa tarde. Sou Jeandeson Nascimento, e vou apresentar meu trabalho de conclusão: uma análise comparativa de algoritmos de pathfinding para NPCs em jogos 2D rodando no navegador. Orientação do professor Gilson Amorim Carvalho."
+> **Tempo-alvo:** 15 a 16 minutos de fala, já com a demonstração (2:30). Cabe em uma defesa de 15–20 minutos.
+> **Regra de ouro:** o slide é apoio, não roteiro. **Olhe para a banca, não para a tela.** Nunca leia o slide: comente-o.
+> **Onde está a fala:** cada slide tem a fala resumida nas **anotações do orador** do PowerPoint. No modo Apresentador (Alt+F5) elas aparecem só para você.
 
 ---
 
-## SLIDE 1 — Capa ⏱️ 30 s
-🎙️ **Fala:** Apresente título, seu nome e a frase de gancho:
-> "São cinco algoritmos no foco — A*, Dijkstra, BFS, DFS e Jump Point Search — e a pergunta central é simples: **qual deles usar num jogo web, e quanto custa de verdade rodar cada um no navegador?**"
+## 1. Três termos, sempre iguais
 
-➡️ **Transição:** "Vou seguir esta agenda."
+A devolutiva apontou termos misturados. Na fala, no slide e no artigo, use **só** estes:
 
----
+| Diga | Nunca diga |
+|---|---|
+| **DFS-Greedy** (variante adotada) | "Greedy DFS", "DFS (Greedy)", "DFS puro" |
+| **nós expandidos** | "nós visitados" |
+| **16 ms/quadro (60 fps)** | "16,67 ms" solto, "50 ms" |
 
-## SLIDE 2 — Agenda / Roteiro ⏱️ 20 s
-🎙️ **Fala:** Passe rápido pelos 5 blocos sem detalhar:
-> "Começo pela introdução — contexto e objetivos; depois o referencial dos cinco algoritmos; a metodologia, com o simulador que desenvolvi; os resultados dos benchmarks; e fecho com os trade-offs e trabalhos futuros."
-
-➡️ **Transição:** "Começando pela introdução."
+Quando precisar falar do DFS clássico, sem heurística, diga **"DFS canônico"**. O valor exato do quadro (1000 ÷ 60 ≈ 16,67 ms) só aparece no slide de apoio 32, que explica o arredondamento.
 
 ---
 
-## SLIDE 3 — Divisória "01 — Introdução" ⏱️ 5 s
-🎙️ Só anuncie: "Primeiro, o problema que motivou o trabalho." (Não pare aqui.)
+## 2. Tabela de tempos (para o ensaio cronometrado)
+
+| Slide | Título | Duração | Acumulado |
+|---|---|---|---|
+| 1 | Capa | 0:35 | 0:35 |
+| 2 | Agenda | 0:20 | 0:55 |
+| 3 | Problema | 1:00 | 1:55 |
+| 4 | Objetivos | 0:45 | **2:40** |
+| 5 | Os 5 algoritmos | 1:00 | 3:40 |
+| 6 | A\* | 0:50 | 4:30 |
+| 7 | JPS | 1:00 | **5:30** |
+| 8 | Ambiente de medição | 0:55 | 6:25 |
+| 9 | Simulador (demonstração) | 2:30 | 8:55 |
+| 10 | Cenários de teste | 0:40 | **9:35** |
+| 11 | Nós expandidos | 1:05 | 10:40 |
+| 12 | Escalabilidade | 0:55 | 11:35 |
+| 13 | 50 NPCs simultâneos | 0:50 | 12:25 |
+| 14 | Trade-offs | 1:00 | **13:25** |
+| 15 | Conclusões | 1:10 | 14:35 |
+| 16 | Limitações e futuro | 0:55 | 15:30 |
+| 17 | Obrigado + QR codes | 0:20 | **15:50** |
+
+**Pontos de controle** (olhe o relógio só nestes momentos):
+
+- fim da Introdução (slide 4): **2:40**
+- fim do Referencial (slide 7): **5:30**
+- fim da Metodologia (slide 10): **9:35**, mais da metade do tempo
+- fim dos Resultados (slide 14): **13:25**
+
+**Se o limite for de 15 minutos cravados**, corte nesta ordem: demonstração de 2:30 para 1:30 (pule o passo 5), slide 13 em 30 s, slide 10 em 25 s. Total: cerca de 14:20. **Nunca corte** os slides 11 (resultado principal) e 15 (conclusões).
+
+### Ensaio de referência (já feito, por síntese de voz)
+
+O roteiro foi cronometrado com a voz em português do Windows lendo a fala de cada slide em ritmo normal (`apresentacao/tools/ensaio_cronometrado.ps1`):
+
+- **Fala medida: 8:49** (901 palavras). Com a demonstração de 2:30, o total é **11:19**.
+- O plano é de 15:50, então sobram cerca de **4:30 para pausas, apontar gráficos e transições**. Cabe em 15 minutos mesmo falando devagar.
+- Nenhuma fala passa do tempo do seu slide. A mais justa é a da capa (30 s de fala para 35 s de slide): não improvise ali.
+- O resultado por slide está em `apresentacao/ensaio/ensaio_cronometrado.csv`. Com `-Audio`, o script grava a fala de cada slide em `.wav`, para treinar ouvindo.
+
+Isso mede o texto, não você. O seu ritmo, com as pausas, só aparece nos ensaios abaixo.
+
+### Como ensaiar
+
+1. PowerPoint → guia **Apresentação de Slides** → **Testar Intervalos**. O PowerPoint cronometra cada slide; ao final, **não salve** os intervalos (o avanço deve continuar manual).
+2. Faça **três ensaios completos**, em voz alta, em pé, com a demonstração. Anote o tempo de cada um:
+
+| Ensaio | Data | Tempo total | Slide em que estourei | Ajuste |
+|---|---|---|---|---|
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
+
+3. No terceiro ensaio, peça para alguém fazer as três perguntas da seção 4 e responda indo ao slide de apoio (número + Enter).
 
 ---
 
-## SLIDE 4 — Contexto e Problema ⏱️ 60 s
-🎙️ **Fala:**
-> "Jogos combinam regras e mundos fictícios, e em jogos de exploração o movimento inteligente dos NPCs é essencial para a experiência. Hoje o dev indie tem IA pronta em motores como Unity e Phaser — mas falta uma referência de **desempenho real** de pathfinding **no navegador**, onde quem executa é o motor V8 do JavaScript."
+## 3. Slide a slide
+
+### Abertura (antes do slide 1)
+Respire. Cumprimente a banca.
+
+### Slide 1 — Capa (0:35)
+> "Bom dia. Sou Jeandeson Nascimento e apresento meu trabalho de conclusão: uma análise comparativa de algoritmos de pathfinding para NPCs em jogos 2D no navegador, orientado pelo professor Gilson Amorim Carvalho."
 >
-> "Daí a pergunta de pesquisa:" — aponte o destaque — **"qual algoritmo escolher para ambientes web 2D, e qual o custo real de execução no navegador?"**
+> "São cinco algoritmos e uma pergunta: **qual usar em um jogo web, e quanto custa, de verdade, rodar cada um no navegador?**"
+
+Transição: "Vou seguir esta agenda."
+
+### Slide 2 — Agenda (0:20)
+> "Cinco blocos: introdução, o referencial dos cinco algoritmos, a metodologia com o simulador que desenvolvi, os resultados dos benchmarks e a conclusão."
+
+Dica: o canto superior direito de cada slide mostra a seção atual.
+
+### Slide 3 — Problema (1:00)
+> "Em jogos de exploração, o movimento inteligente dos NPCs sustenta a experiência. O desenvolvedor independente tem IA pronta em Unity e Phaser, mas a literatura mede pathfinding em C++ e código nativo. No navegador quem executa é o motor V8: compilação JIT, coletor de lixo e um relógio de resolução limitada mudam o custo real."
 >
-> "Os números à direita resumem o escopo: **5 algoritmos, 4 cenários de benchmark, motor V8, e o número que vai voltar o tempo todo — 16 ms, o orçamento de um quadro a 60 fps**."
+> "A lacuna específica é a comparação A\* contra JPS em JavaScript. Daí a pergunta de pesquisa:" (aponte o cartão e leia).
 
-➡️ **Transição:** "Por que isso é uma lacuna? É a justificativa."
+Transição: "Para responder, estes foram os objetivos."
 
----
+### Slide 4 — Objetivos (0:45)
+> "O objetivo geral é comparar o desempenho dos cinco algoritmos em um ambiente 2D com obstáculos. Os específicos: **estudar** os princípios, **implementar** do zero, **disponibilizar** o simulador online, **avaliar** por tempo, nós expandidos, comprimento do caminho e taxa de sucesso, e **validar** a admissibilidade da heurística de Manhattan."
 
-## SLIDE 5 — Justificativa ⏱️ 55 s
-🎙️ **Fala:**
-> "A literatura clássica de pathfinding mede quase tudo em C++ ou compilação nativa. O JavaScript introduz variabilidade **pouco documentada**: o JIT compila progressivamente, o garbage collector causa pausas, e mitigações de segurança como a do Spectre limitam até a precisão do relógio. A lacuna específica é a comparação **A* vs JPS em ambiente web**."
+Transição: "Começando pelo referencial." **[controle: 2:40]**
+
+### Slide 5 — Os 5 algoritmos (1:00)
+Não leia célula por célula.
+> "Dijkstra é a base: ótimo, sem heurística. O BFS explora camada por camada e garante o menor número de passos. O DFS entra na **variante adotada, o DFS-Greedy**: uma pilha guiada pela distância de Manhattan, rápida, mas sem garantia de caminho ótimo. O A\* soma custo real e estimativa. E o JPS é o A\* com saltos."
 >
-> "Além da análise, entrego um **artefato funcional**: o simulador está hospedado online — a banca pode reproduzir tudo sem instalar nada. Inclusive farei uma **demonstração ao vivo** daqui a pouco."
+> "As cores dos quadradinhos são as mesmas dos gráficos."
 
-➡️ **Transição:** "Esses são os objetivos formais."
+Transição: "Dois deles são o foco: A\* e JPS."
 
----
+### Slide 6 — A\* (0:50)
+> "O A\* concilia o Dijkstra com a busca heurística. A função f(n) soma g(n), o custo real desde a origem, com h(n), a estimativa até o objetivo. Com heurística admissível, que nunca superestima, o caminho é o ótimo. Em grade de quatro direções, a distância de Manhattan cumpre esse papel."
 
-## SLIDE 6 — Objetivos ⏱️ 45 s
-🎙️ **Fala:** Leia o objetivo geral de forma resumida e cite os 5 específicos rápido:
-> "O objetivo geral é comparar o desempenho dos cinco algoritmos num ambiente 2D com obstáculos, via simulador em TypeScript. Os específicos foram: **estudar** os princípios, **implementar do zero** sem bibliotecas, **disponibilizar** o simulador online, **avaliar** por métricas — tempo, nós, caminho e sucesso — e **validar** a admissibilidade da heurística de Manhattan."
+Transição: "O JPS parte daí."
 
-➡️ **Transição:** "Vamos ao referencial — os cinco algoritmos."
-
----
-
-## SLIDE 7 — Divisória "02 — Referencial Teórico" ⏱️ 5 s
-🎙️ "Agora, o que é cada algoritmo."
-
----
-
-## SLIDE 8 — Tabela dos 5 algoritmos ⏱️ 75 s
-🎙️ **Fala:** Esta é a tabela-mãe. Percorra coluna a coluna, sem ler célula por célula:
-> "Resumindo numa tabela: **Dijkstra** é a base de toda busca informada — ótimo, sem heurística, mas explora uniformemente e gasta memória. **BFS** usa fila FIFO e garante o menor número de passos em grades de custo uniforme. **DFS**, na minha variante Greedy, usa pilha e é rápido, mas dá caminhos subótimos. **A*** é o marco: combina custo real e heurística em f(n) = g(n) + h(n). E o **JPS** pula simetrias em corredores — brilha em grades densas."
+### Slide 7 — JPS (1:00)
+> "Mesmo mapa, dois algoritmos. O A\* expande as nove células do corredor, uma a uma. O JPS salta em linha reta e só para em um **ponto de salto**: a célula P, onde o fim do obstáculo cria um vizinho forçado. São 2 nós expandidos em vez de 9, e o mesmo caminho."
 >
-> "O recado da literatura é que **a escolha do algoritmo impacta diretamente o desempenho** conforme o cenário."
+> "O JPS original usa oito direções. Neste trabalho ele foi **adaptado para quatro direções**."
 
-➡️ **Transição:** "Dois deles merecem um olhar mais de perto — A* e JPS, que são o foco."
+Transição: "Como medi tudo isso?" **[controle: 5:30]**
 
----
+### Slide 8 — Ambiente de medição (0:55)
+> "Três decisões. Implementação em TypeScript com Canvas 2D nativo, sem framework de jogo e sem biblioteca de pathfinding. Medição em Chrome headless: como o relógio do navegador tem resolução de cerca de 0,1 ms, cada busca é repetida em lote, em dez janelas. E reprodutibilidade: com sementes fixas, nós expandidos e caminhos são idênticos em qualquer máquina; só o tempo depende do hardware."
 
-## SLIDE 9 — A* e JPS em foco ⏱️ 75 s
-🎙️ **Fala:**
-> "O **A*** concilia o Dijkstra com busca heurística informada. A fórmula **f(n) = g(n) + h(n)** equilibra custo real e estimativa — e, com heurística admissível como a distância de Manhattan, ele **garante o caminho ótimo**."
+Transição: "O artefato central é o simulador."
+
+### Slide 9 — Simulador: demonstração ao vivo (2:30)
+Abra o simulador (aba já aberta antes de começar). Faça nesta ordem:
+
+1. No menu, selecione o algoritmo dos NPCs.
+2. Inicie o jogo e **clique no mapa**: o caminho é traçado até o destino.
+3. Aperte **D\**: aparecem a grade e os custos f de cada célula.
+4. Troque para o DFS-Greedy (tecla 4 para o jogador, R para os inimigos) e mostre o caminho mais longo.
+5. Se houver tempo, volte ao menu e abra o **modo benchmark**.
+
+> **Plano B:** se a rede falhar, fique no slide 9 (ele mostra as duas telas com os quatro pontos) e diga: "Tenho uma gravação; sigo pelos slides."
+
+Transição: "Estes foram os cenários medidos."
+
+### Slide 10 — Cenários de teste (0:40)
+> "Quatro cenários: densidade de obstáculos em grade 20×20; múltiplos NPCs, com 50 buscas simultâneas; congestionamento, com todos convergindo para um corredor central em grade 30×30; e objetivos dinâmicos em grade 40×40. Em todos, as mesmas quatro métricas."
+
+Transição: "Aos resultados." **[controle: 9:35]**
+
+### Slide 11 — Nós expandidos (1:05)
+> "O resultado mais marcante. Em grade 20×20 com densidade 0,4, A\*, Dijkstra e BFS expandem 399 nós. O JPS, **três**. Redução de 99,2%." (pausa)
 >
-> "O **JPS** é uma otimização do A*: ele poda simetrias e salta até os jump points, eliminando vizinhos redundantes. O resultado mais forte do trabalho está aqui: em densidade 0,4, ele expande **3 nós contra 399 do A* — mais de 99% de redução**, mantendo a otimalidade. Importante: **adaptei o JPS para movimento 4-direcional** neste trabalho."
+> "Obstáculos densos criam vizinhos forçados, e poucos pontos de salto ligam origem e destino. O caminho continua ótimo: 39 células, igual ao do A\*."
 
-➡️ **Transição:** "Como medi tudo isso? Metodologia."
+Transição: "E quando são muitos NPCs ao mesmo tempo?"
 
----
+### Slide 12 — Escalabilidade (0:55)
+> "Corredor 30×30, de 5 a 50 NPCs convergindo para o mesmo gargalo. O gráfico mostra o A\*, o JPS e o limite de 16 ms por quadro. O tempo cresce em linha reta, porque cada NPC faz uma busca independente. Com 50 NPCs, o A\* usa 1,28 ms: 8% do quadro. Mesmo o mais lento, o Dijkstra, fica em 2,05 ms."
 
-## SLIDE 10 — Divisória "03 — Metodologia" ⏱️ 5 s
-🎙️ "Agora, como o trabalho foi construído e medido."
+Transição: "Na grade 20×20, com os cinco lado a lado:"
 
----
-
-## SLIDE 11 — Stack e ambiente ⏱️ 70 s
-🎙️ **Fala:** Não leia a lista inteira; destaque as escolhas e o **porquê**:
-> "A stack é TypeScript 5, bundler Vite, renderização em **Canvas 2D nativo — de propósito, sem framework de jogo**, para não inserir variáveis externas no desempenho. **Zero bibliotecas de pathfinding**: implementei os cinco do zero."
+### Slide 13 — 50 NPCs simultâneos (0:50)
+> "Cinquenta buscas no mesmo quadro, e todos terminam em menos de 2 ms. No pior caso, 10% do orçamento de 16 ms por quadro. Nestas escalas, a taxa de quadros não decide a escolha do algoritmo."
 >
-> "O benchmark roda em Chrome headless. E o ponto metodológico mais importante é o **protocolo de reprodutibilidade**: como o relógio do Chrome tem resolução limitada por segurança, uso **medição em lote** — repito a busca muitas vezes numa janela cronometrada e divido — em 10 janelas, com **PRNG de semente fixa**. Isso garante que **nós e comprimento de caminho são idênticos em qualquer máquina**; só o tempo depende do hardware."
+> "Repare que o JPS não é o mais rápido aqui."
 
-➡️ **Transição:** "E o artefato central é o simulador — que vou mostrar agora."
+Transição: "É o que o próximo slide explica."
 
----
-
-## SLIDE 12 — Simulador / DEMO AO VIVO ⏱️ 2–3 min ⭐
-🎙️ **Fala + ação:** Este é o momento de maior impacto. **Abra o simulador ao vivo** (`pathfinding-quest-j95b.vercel.app`).
-> "Este é o simulador. Vou selecionar o algoritmo dos NPCs aqui... clico no mapa para definir o destino e eles traçam o caminho. Apertando **D**, ativo o debug visual: aparecem a grade e os custos das células. E há um **modo benchmark** que gera os gráficos que vou mostrar a seguir."
-
-**Roteiro da demo (faça nesta ordem):**
-1. Mostre um NPC achando caminho com **A***.
-2. Troque para **DFS** e mostre o caminho mais sinuoso/longo.
-3. Ative **debug (D)** para mostrar a grade.
-4. Se houver tempo, mostre o modo benchmark.
-
-> ⚠️ **Plano B:** se a internet falhar, tenha um **vídeo de tela gravado** ou prints. Nunca dependa só da rede ao vivo. Diga: "Caso a conexão oscile, tenho uma gravação."
-
-➡️ **Transição:** "Esses são os cenários que testei."
-
----
-
-## SLIDE 13 — Cenários de teste ⏱️ 40 s
-🎙️ **Fala:** Apresente os 4 cenários rapidamente:
-> "Foram quatro cenários: **densidade de obstáculos** numa grade 20×20; **múltiplos NPCs** — 50 simultâneos; **congestionamento**, com um corredor central forçado em 30×30; e **objetivos dinâmicos** em 40×40, com replanejamento em etapas."
-
-➡️ **Transição:** "Vamos aos resultados."
-
----
-
-## SLIDE 14 — Divisória "04 — Resultados" ⏱️ 5 s
-🎙️ "Os números." (avance)
-
----
-
-## SLIDE 15 — Resultados: Obstáculos ⏱️ 70 s
-🎙️ **Fala:** Foque nos 3 destaques:
-> "Primeiro destaque, e o mais marcante: na grade 20×20 em densidade 0,4, o **A* expande 399 nós e o JPS apenas 3 — 99,2% menos**. A poda de simetrias do JPS é dramática quando há muitos obstáculos."
+### Slide 14 — Trade-offs (1:00)
+> "Lendo por linha. O A\* tem caminho ótimo e bom tempo. O JPS expande metade dos nós do A\*, 3.500 contra 7.100, e ainda assim é mais lento: nesta grade pequena e esparsa, as sondagens de cada salto custam mais do que os nós poupados. O DFS-Greedy é o mais rápido, 0,51 ms, mas o caminho tem 45 células contra 39: 15% mais longo."
 >
-> "Segundo: em **tempo**, todos os algoritmos ficam em **menos de 1 ms por busca** — ordens de grandeza abaixo dos 16 ms do quadro."
+> "Nenhum vence em tudo. A escolha depende do gargalo."
+
+Transição: "Concluindo." **[controle: 13:25]**
+
+### Slide 15 — Conclusões (1:10)
+> "Quatro respostas. **Um:** o orçamento de 16 ms por quadro é atendido com folga; a estimativa inicial de 50 ms por busca era folgada em mais de uma ordem de grandeza. **Dois:** o JPS confirma a vantagem em nós expandidos, acima de 99% em grades densas. **Três:** o A\* segue como a referência de equilíbrio. **Quatro:** o DFS-Greedy é o mais rápido, mas não garante o caminho ótimo."
 >
-> "Terceiro: o **DFS** paga o preço da velocidade — caminho **15% mais longo**, 45 células contra as 39 ótimas."
+> "Em uma frase: **nas escalas testadas, o gargalo não é a taxa de quadros; são os nós expandidos e a qualidade do caminho que decidem.**"
 
-➡️ **Transição:** "E quando colocamos muitos NPCs ao mesmo tempo?"
-
----
-
-## SLIDE 16 — Resultados: Escalabilidade ⏱️ 55 s
-🎙️ **Fala:**
-> "Aqui está a escalabilidade no corredor 30×30 com 50 NPCs. A ordem de tempo é: DFS 0,71 ms, BFS 1,25, A* 1,28, JPS 1,71 e Dijkstra 2,05. O custo **cresce linearmente** com o número de NPCs, porque cada NPC faz uma busca independente — o motor é single-thread."
+### Slide 16 — Limitações e futuro (0:55)
+> "Três limitações, cada uma com a saída. Sem verificação prévia de conectividade, um destino isolado provoca busca exaustiva: basta checar antes. O A\* não tem memória: a cada mudança no mapa refaz a busca inteira; o D\* Lite replaneja só o que mudou. E o custo cresce com agentes e mapa: HPA\* e amortização entre quadros."
 >
-> "O ponto-chave: mesmo o mais lento fica **bem abaixo dos 16 ms**."
+> "Além disso, os tempos vêm de um único hardware."
 
-➡️ **Transição:** "Vendo o gargalo do corredor de perto."
+### Slide 17 — Obrigado + QR codes (0:20)
+> "Obrigado pela atenção. O simulador e o código estão nos QR codes: é só apontar a câmera. Fico à disposição da banca."
 
----
-
-## SLIDE 17 — Resultados: Congestionamento ⏱️ 50 s
-🎙️ **Fala:**
-> "No cenário de gargalo — todos os NPCs convergindo para o mesmo corredor — o DFS é o mais rápido com 0,71 ms e o Dijkstra o mais lento com 2,05. A conclusão prática é importante: **mesmo com 50 NPCs disputando o corredor, todos cabem folgadamente no quadro**. A diferença entre eles está no **número de nós expandidos, não na viabilidade** de rodar em tempo real."
-
-➡️ **Transição:** "Juntando tudo, quais são os trade-offs?"
+Deixe este slide na tela durante a arguição.
 
 ---
 
-## SLIDE 18 — Comparativo / Trade-offs ⏱️ 60 s
-🎙️ **Fala:**
-> "Os trade-offs ficam claros. O **JPS** vence em nós expandidos — redução acima de 99% em alta densidade —, mas sua vantagem **de tempo** só aparece em grades densas. O **A*** é o melhor equilíbrio geral: robusto e referência da literatura. E o **DFS Greedy** entrega só velocidade — caminhos 15% mais longos, então serve quando a qualidade do caminho não é prioridade."
+## 4. Arguição: perguntas prováveis e respostas prontas
 
-➡️ **Transição:** "Concluindo."
+Para ir a um slide de apoio durante a apresentação: **digite o número e aperte Enter**.
 
----
+### As três perguntas que o orientador antecipou
 
-## SLIDE 19 — Divisória "05 — Conclusão" ⏱️ 5 s
-🎙️ "Os pontos-chave do trabalho."
+**"Por que o JPS não foi mais rápido?"** → slide **19**
+> "Porque o JPS reduz nós expandidos, não necessariamente tempo. Na minha adaptação para quatro direções, cada célula percorrida no salto dispara duas sondagens perpendiculares. Em grade pequena e esparsa essas sondagens são longas e custam mais do que os nós poupados: 1,06 ms contra 0,95 ms do A\*, mesmo com metade dos nós. Em grade densa os obstáculos encurtam as sondagens: em 40×40 com densidade 0,4 o JPS leva 0,06 ms contra 0,24 ms, quatro vezes mais rápido."
 
----
+**"Por que usar DFS?"** → slide **20**
+> "Como linha de base clássica, para mostrar em números o conflito entre velocidade de busca e qualidade do caminho. O DFS canônico gerava rotas que se afastavam do objetivo, inviável para NPCs. Por isso a variante adotada, o DFS-Greedy: os vizinhos são ordenados pela distância de Manhattan antes de empilhar. Ele é o mais rápido, 0,51 ms com 50 NPCs, mas entrega 45 células contra 39 do ótimo."
 
-## SLIDE 20 — Pontos-chave ⏱️ 70 s
-🎙️ **Fala:** Os 4 achados, com convicção:
-> "Quatro conclusões. **Um:** o orçamento de 16 ms é atendido com folga — a estimativa inicial de 50 ms por busca do anteprojeto estava errada em mais de uma ordem de grandeza; com 50 NPCs, todos rodam em menos de 2 ms. **Dois:** o JPS confirma a vantagem em nós expandidos, acima de 99% em grades densas. **Três:** o A* segue como referência geral, com a admissibilidade de Manhattan validada. **Quatro:** o DFS puro é inviável em tempo real, e mesmo o Greedy dá caminhos 15% mais longos."
->
-> "Em uma frase: **nas escalas testadas, o gargalo não é o frame rate — é o número de nós e a qualidade do caminho que decidem a escolha.**"
+**"Qual a limitação do A\* em ambientes dinâmicos?"** → slide **21**
+> "O A\* que implementei não tem memória: cada replanejamento recria a lista aberta e zera os custos de todas as células. Mudou uma célula, recalcula tudo. Nas escalas medidas isso cabe com folga, mas projetando 50 NPCs replanejando a cada quadro em grade 40×40 densa, são cerca de 12 dos 16 ms do quadro. As saídas são o D\* Lite, o A\* fatiado entre quadros e o HPA\*."
 
-➡️ **Transição:** "Limitações e o que vem depois."
+### Outras perguntas prováveis
 
----
+| Pergunta | Resposta em uma frase | Slide |
+|---|---|---|
+| Seu JPS é realmente ótimo? | A prova original é para 8 direções; a minha variante foi validada empiricamente: mesmos comprimentos do A\* em todos os cenários. | 22 |
+| Pode mostrar o código? | Laço principal do A\* e rotina de salto do JPS, direto do repositório. | 23, 24 |
+| E os números completos? | Tabelas de 20×20, 40×40, múltiplos NPCs e objetivos dinâmicos. | 25 a 29 |
+| E em grades maiores? | Em 40×40 densa o JPS expande 3 nós contra 1.599 do A\* e também vence em tempo. | 26 |
+| Por que a etapa 2 do teste dinâmico falhou? | O destino estava isolado pelos obstáculos; os três algoritmos responderam corretamente que não há caminho. | 29 |
+| Por que medir em lote? | O relógio do Chrome tem resolução de cerca de 0,1 ms, maior que a duração de uma busca. | 30 |
+| Por que Manhattan é admissível? | Cada passo cardeal reduz a distância em no máximo 1; logo h nunca superestima. | 31 |
+| O quadro não é 16,67 ms? | Sim: 1000 ÷ 60. Adotei 16 ms/quadro, arredondando para baixo, que é o critério mais exigente. | 32 |
+| Por que JavaScript e não C++? | Porque a literatura já mede em C++; a lacuna é o navegador, onde o dev indie publica. | 3 |
+| Se todos ficam abaixo de 2 ms, por que comparar? | Porque a escala é linear: com centenas de agentes ou grades maiores, nós expandidos e qualidade do caminho passam a decidir. | 13, 14 |
+| Por que o Dijkstra é mais lento que o BFS com os mesmos nós? | Pela estrutura de dados: heap binário, O(log n), contra fila FIFO, O(1). | 27 |
+| O DFS não deveria gastar pouca memória? | O canônico sim; a variante adotada mantém conjunto de visitados e mapa de origem, O(V), em troca de robustez. | 20 |
 
-## SLIDE 21 — Limitações e direções futuras ⏱️ 55 s
-🎙️ **Fala:** Mostre maturidade — admita limitações já com a solução:
-> "Três limitações honestas: não há **detecção de conectividade prévia**, então uma busca para destino inalcançável é exaustiva; o **custo escala com o número de agentes**; e os tempos vêm de um **hardware único**, não generalizáveis."
->
-> "As direções futuras endereçam isso: **D* Lite** para replanejamento incremental em ambientes com obstáculos móveis; **HPA*** para mapas grandes; e **amortização temporal** — replanejar parte dos NPCs por quadro em vez de todos."
-
-➡️ **Transição:** "Com isso, encerro e agradeço."
-
----
-
-## SLIDE 22 — Agradecimento ⏱️ 20 s
-🎙️ **Fala:**
-> "Obrigado pela atenção. O simulador e o código estão disponíveis nos links em tela, e fico à disposição da banca para as perguntas."
-
-(Deixe o slide com os links visível durante a arguição — facilita se pedirem para rever a demo.)
+**Se não souber:** "Não testei esse caso específico; pela escala linear medida, eu esperaria que..." Raciocine em voz alta, não invente número.
 
 ---
 
-## DICAS DE EXECUÇÃO (leia antes de subir)
+## 5. Antes de subir
 
-**Tempo:**
-- Se estiver atrasado, **corte tempo nos slides 8, 16 e 17** (são reforço). **Nunca corte a demo (12)** nem a conclusão (20).
-- Marque mentalmente: ao terminar a metodologia (slide 11) você deve estar por volta da metade do tempo.
+**Equipamento**
+- Abra o simulador e o repositório em abas, antes de começar. Teste a tecla D.
+- Tenha um vídeo curto da demonstração gravado (plano B).
+- Teste os QR codes do slide 17 com o seu celular, na sala.
 
-**Postura:**
-- Fale para a **banca**, não para o slide nem para o computador.
-- Pause após cada número de impacto (3 vs 399; <2 ms). Deixe assentar.
-- Não diga "é simples/óbvio" — pode soar arrogante diante da banca.
+**Postura**
+- Fale para a banca. Pause depois de cada número de impacto (3 contra 399; menos de 2 ms).
+- Não diga "é simples" ou "é óbvio".
 
-**Demo (slide 12):**
-- Abra a URL e o repositório em abas **antes** de começar a apresentação.
-- Teste o "D" de debug antes. Tenha vídeo/prints de backup.
+**Números na ponta da língua**
+- 39 células (ótimo) e 45 (DFS-Greedy, 15% a mais)
+- 399 contra 3 nós expandidos (99,2% a menos)
+- menos de 2 ms para 50 NPCs; 16 ms/quadro (60 fps)
+- A\* 0,95 ms, JPS 1,06 ms, DFS-Greedy 0,51 ms (50 NPCs, 20×20)
 
-**Arguição (depois):**
-- Para perguntas, use o **ROTEIRO_DE_ESTUDO.md, seção 8** — já tem as respostas prontas.
-- Se não souber algo: "Essa é uma boa observação; não testei esse caso específico, mas pela escala linear medida eu esperaria que..." — raciocine em voz alta, não invente número.
-- Tenha à mão: 39 células · 16 ms · 3 vs 399 nós · <2 ms para 50 NPCs.
-
-**Frase de efeito para fechar respostas difíceis:**
-> "O trabalho não busca o algoritmo 'melhor' em absoluto, mas mostrar que a escolha depende do gargalo: tempo, nós expandidos ou qualidade de caminho — e medir isso no navegador, que a literatura ignora."
+**Frase para fechar respostas difíceis**
+> "O trabalho não busca o algoritmo melhor em absoluto; mostra que a escolha depende do gargalo (tempo, nós expandidos ou qualidade do caminho) e mede isso no navegador, onde a literatura quase não mede."

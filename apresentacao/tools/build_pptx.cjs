@@ -1,6 +1,19 @@
+// OBSOLETO — builder antigo (tema escuro, 22 slides, fontes de 10–14 pt).
+// A apresentação oficial é gerada por build_from_template.ps1 (ou build_all.ps1),
+// já ajustada à devolutiva de 18/09/2026. Este script grava no MESMO arquivo
+// TCC_Apresentacao_Jeandeson.pptx; por isso só roda com a flag --legado, para
+// ninguém sobrescrever a versão atual por engano.
+//
 // Build TCC presentation .pptx using pptxgenjs.
 // Style mirrors the unijorge template: dark purple background, purple→magenta
 // title gradient, magenta accents. Embeds simulator screenshots + benchmark charts.
+
+if (!process.argv.includes('--legado')) {
+  console.error('build_pptx.cjs está obsoleto e sobrescreveria a apresentação atual.');
+  console.error('Use: powershell -ExecutionPolicy Bypass -File build_all.ps1');
+  console.error('(para rodar mesmo assim: node build_pptx.cjs --legado)');
+  process.exit(1);
+}
 
 const path  = require('path');
 const PptxGenJS = require('./pptxgen.cjs.js');
